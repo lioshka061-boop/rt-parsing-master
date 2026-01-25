@@ -1,0 +1,35 @@
+node_modules/
+**/node_modules/
+.next/
+out/
+.env
+.env.*
+.DS_Store
+**/.DS_Store
+# Rust/target artifacts
+target/
+**/target/
+
+# Local SQLite storage
+storage/
+storage/*.db
+storage/*.db-shm
+storage/*.db-wal
+storage/storage.rdb/
+*.db
+*.db-shm
+*.db-wal
+
+# Temp XML/exports
+*.xml.tmp
+export/
+cfg.d/
+pgdata/
+static/uploads/
+
+# Build/output binaries
+/rt-parsing
+
+# Frontend build artifacts
+frontend/tsconfig.tsbuildinfo
+frontend/next-env.d.ts

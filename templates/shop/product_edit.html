@@ -1,0 +1,306 @@
+{% extends "shop/base.html" %}
+{% block head %}
+{% let page = "products" %}
+<style>
+.wrap {
+	display: grid;
+	grid-template-columns: 1fr 320px;
+	gap: 18px;
+	align-items: start;
+}
+.card {
+	background: #0b1220;
+	border: 1px solid #1f2937;
+	border-radius: 16px;
+	padding: 14px;
+}
+.topbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 14px;
+}
+.topbar a {
+	text-decoration: none;
+	color: #9ca3af;
+	border: 1px solid #1f2937;
+	background: #111827;
+	padding: 8px 12px;
+	border-radius: 12px;
+	font-weight: 700;
+}
+.save {
+	border: 1px solid #2563eb;
+	background: #2563eb;
+	color: #fff;
+	padding: 10px 14px;
+	border-radius: 12px;
+	cursor: pointer;
+	font-weight: 800;
+}
+.grid {
+	display: grid;
+	gap: 12px;
+}
+label {
+	display: block;
+	font-size: 12px;
+	text-transform: uppercase;
+	color: #9ca3af;
+	margin-bottom: 6px;
+	letter-spacing: 0.08em;
+}
+input[type="text"], input[type="number"], textarea, select {
+	width: 100%;
+	border-radius: 12px;
+	border: 1px solid #1f2937;
+	background: #111827;
+	color: #e5e7eb;
+	padding: 10px 12px;
+}
+textarea { min-height: 160px; resize: vertical; }
+.hint { color: #9ca3af; font-size: 12px; margin-top: 6px; }
+.radio {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	flex-wrap: wrap;
+}
+.radio label {
+	margin: 0;
+	text-transform: none;
+	letter-spacing: normal;
+	font-size: 14px;
+	color: #e5e7eb;
+	display: inline-flex;
+	gap: 8px;
+	align-items: center;
+}
+.side h4 { margin: 0 0 10px 0; }
+.preview {
+	width: 100%;
+	aspect-ratio: 1 / 1;
+	border-radius: 14px;
+	border: 1px solid #1f2937;
+	background: #111827;
+	background-size: contain;
+	background-repeat: no-repeat;
+	background-position: center;
+}
+.pill {
+	display: inline-block;
+	border-radius: 999px;
+	padding: 2px 10px;
+	font-size: 12px;
+	background: #111827;
+	border: 1px solid #1f2937;
+	color: #e5e7eb;
+}
+.meta { display: grid; gap: 8px; }
+.meta-row { display: flex; justify-content: space-between; gap: 10px; color: #9ca3af; font-size: 13px; }
+.meta-row strong { color: #e5e7eb; font-weight: 800; }
+.two { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.badge-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.pill.status-draft { border-color:#dc2626; color:#dc2626; }
+.pill.status-noindex { border-color:#f59e0b; color:#f59e0b; }
+.pill.status-seo { border-color:#10b981; color:#10b981; }
+
+@media (max-width: 980px) {
+	.wrap { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="topbar">
+	<a href="/shop/{{shop.id}}/products">← Повернутись</a>
+	<div style="display:flex; gap:10px; align-items:center;">
+		<span class="pill">{{ product.article }}</span>
+		<button form="product-edit" type="submit" class="save">Зберегти</button>
+	</div>
+</div>
+
+<div class="wrap">
+	<form id="product-edit" class="card grid" method="post" action="/shop/{{shop.id}}/products/{{product.article}}/edit">
+		<div>
+			<label>Заголовок</label>
+			<input type="text" name="title" value="{% if let Some(t) = settings.title.as_ref() %}{{t}}{% else %}{{product.title}}{% endif %}">
+			<div class="hint">Порожнє значення → буде використано заголовок з парсингу.</div>
+		</div>
+
+		<div>
+			<label>Опис</label>
+			<textarea name="description">{% if let Some(d) = settings.description.as_ref() %}{{d}}{% else %}{{ product.description.clone().unwrap_or_default() }}{% endif %}</textarea>
+			<div class="hint">Можна HTML. Порожнє значення → буде використано опис з парсингу.</div>
+		</div>
+
+		<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+			<div>
+				<label>Ціна (грн)</label>
+				<input type="number" min="0" step="1" name="price" value="{% if let Some(p) = settings.price %}{{p}}{% else %}{% if let Some(p) = product.price %}{{p}}{% endif %}{% endif %}">
+				{% if let Some(source_price) = product.source_price %}
+					<div class="hint">Імпортна ціна: {{ source_price }} ₴</div>
+				{% endif %}
+			</div>
+			<div>
+				<label>Наявність</label>
+				<select name="available">
+					<option value="available" {% if available_value == "available" %}selected{% endif %}>В наявності</option>
+					<option value="on_order" {% if available_value == "on_order" %}selected{% endif %}>Під замовлення</option>
+					<option value="not_available" {% if available_value == "not_available" %}selected{% endif %}>Немає</option>
+				</select>
+			</div>
+		</div>
+
+		<div>
+			<label>Фото (посилання через кому)</label>
+			<input type="text" name="images" value="{{ images_csv }}">
+		</div>
+
+		<div>
+			<label>Категорія товару</label>
+			<select name="site_category_id">
+				<option value="">— Не вибрано —</option>
+				{% for c in category_options %}
+					<option value="{{c.id}}" {% if selected_category_id == c.id %}selected{% endif %}>{{c.label}}</option>
+				{% endfor %}
+			</select>
+			<div class="hint">Список підтягується з вкладки “Категории товаров”.</div>
+		</div>
+
+		<div>
+			<label>Хіти продажу</label>
+			<label style="display:flex; align-items:center; gap:10px;">
+				<input type="checkbox" name="is_hit" value="1" {% if settings.is_hit %}checked{% endif %}>
+				Додати в блок “Хіти продажу” на головній
+			</label>
+		</div>
+
+		<div>
+			<label>Рекомендовані товари</label>
+			<div class="radio">
+				<label>
+					<input type="radio" name="recommend_mode" value="auto" {% if settings.recommend_mode == crate::shop_product::RecommendMode::Auto %}checked{% endif %}>
+					Автоматично
+				</label>
+				<label>
+					<input type="radio" name="recommend_mode" value="manual" {% if settings.recommend_mode == crate::shop_product::RecommendMode::Manual %}checked{% endif %}>
+					Вручну
+				</label>
+			</div>
+			<div class="hint">Для “Вручну” вкажіть артикули через кому.</div>
+			<input type="text" name="recommended_articles" value="{{ recommended_csv }}" placeholder="ART123, ART456">
+		</div>
+
+		<div class="card" style="background:#0d1625; border:1px solid #1f2937;">
+			<div class="two">
+				<div>
+						<label>H1</label>
+						<input type="text" name="h1" value="{% if let Some(v) = settings.h1.as_ref() %}{{v}}{% else %}{{ settings.title.as_deref().unwrap_or(product.title.as_str()) }}{% endif %}">
+				</div>
+				<div>
+					<label>Slug (опційно)</label>
+					<input type="text" name="slug" value="{% if let Some(v) = settings.slug.as_ref() %}{{v}}{% endif %}">
+					<div class="hint">Без слешів, для URL /item/&lt;slug&gt;--&lt;article&gt;</div>
+				</div>
+			</div>
+			<div>
+				<label>Canonical</label>
+				<input type="text" name="canonical" value="{% if let Some(v) = settings.canonical.as_ref() %}{{v}}{% endif %}" placeholder="https://site.com/item/slug--ART123">
+			</div>
+			<div class="two">
+				<div>
+					<label>Robots</label>
+					<input type="text" name="robots" value="{% if let Some(v) = settings.robots.as_ref() %}{{v}}{% else %}{% if settings.indexing_status == crate::shop_product::IndexingStatus::Index %}index,follow{% else %}noindex,follow{% endif %}{% endif %}">
+				</div>
+				<div>
+					<label>OG image</label>
+					<input type="text" name="og_image" value="{% if let Some(v) = settings.og_image.as_ref() %}{{v}}{% endif %}">
+				</div>
+			</div>
+			<div class="two">
+				<div>
+					<label>OG title</label>
+					<input type="text" name="og_title" value="{% if let Some(v) = settings.og_title.as_ref() %}{{v}}{% endif %}">
+				</div>
+				<div>
+					<label>OG description</label>
+					<input type="text" name="og_description" value="{% if let Some(v) = settings.og_description.as_ref() %}{{v}}{% endif %}">
+				</div>
+			</div>
+			<div>
+				<label>SEO текст (HTML)</label>
+				<textarea name="seo_text">{% if let Some(v) = settings.seo_text.as_ref() %}{{v}}{% endif %}</textarea>
+				<div class="hint">Використовується у вкладці “Опис”, не перезаписується імпортами.</div>
+			</div>
+			<div>
+				<label>FAQ (HTML, опційно)</label>
+				<textarea name="faq" rows="6" placeholder="<div class='qa-item'><div class='qa-q'>Питання</div><div class='qa-a'>Відповідь</div></div>">{% if let Some(v) = settings.faq.as_ref() %}{{v}}{% endif %}</textarea>
+				<div class="hint">Відображається у вкладці Q&A та в schema.org FAQPage. Імпорти не мають доступу.</div>
+			</div>
+		</div>
+
+		<div class="card" style="background:#0d1625; border:1px solid #1f2937;">
+			<h4 style="margin-top:0;">Видимість та індексація</h4>
+				<div class="badge-row" style="margin-bottom:8px;">
+					<span class="pill status-{% if settings.status == crate::shop_product::ProductStatus::Draft %}draft{% else %}{% if settings.status == crate::shop_product::ProductStatus::PublishedNoIndex %}published-noindex{% else %}seo-ready{% endif %}{% endif %}">{{ settings.status.as_str() }}</span>
+					<span class="pill">{% if settings.visibility_on_site == crate::shop_product::Visibility::Visible %}visible{% else %}hidden{% endif %}</span>
+					<span class="pill">{% if settings.indexing_status == crate::shop_product::IndexingStatus::Index %}index{% else %}noindex{% endif %}</span>
+					<span class="pill">SEO score: {{ settings.seo_score }}</span>
+				</div>
+			<div class="two">
+				<div>
+					<label>Статус</label>
+					<select name="status">
+						<option value="draft" {% if settings.status == crate::shop_product::ProductStatus::Draft %}selected{% endif %}>draft</option>
+						<option value="published_noindex" {% if settings.status == crate::shop_product::ProductStatus::PublishedNoIndex %}selected{% endif %}>published_noindex</option>
+						<option value="seo_ready" {% if settings.status == crate::shop_product::ProductStatus::SeoReady %}selected{% endif %}>seo_ready</option>
+					</select>
+					<div class="hint">seo_ready вимагає title/h1/description/images/category/canonical.</div>
+				</div>
+				<div>
+					<label>Видимість</label>
+					<select name="visibility_on_site">
+						<option value="hidden" {% if settings.visibility_on_site == crate::shop_product::Visibility::Hidden %}selected{% endif %}>hidden</option>
+						<option value="visible" {% if settings.visibility_on_site == crate::shop_product::Visibility::Visible %}selected{% endif %}>visible</option>
+					</select>
+				</div>
+			</div>
+			<div class="two">
+				<div>
+					<label>Індексація</label>
+					<select name="indexing_status">
+						<option value="noindex" {% if settings.indexing_status == crate::shop_product::IndexingStatus::NoIndex %}selected{% endif %}>noindex</option>
+						<option value="index" {% if settings.indexing_status == crate::shop_product::IndexingStatus::Index %}selected{% endif %}>index</option>
+					</select>
+				</div>
+				<div>
+					<label>Рекомендації (view-only)</label>
+					<input type="text" value="{{ recommended_csv }}" disabled>
+					<div class="hint">Для зміни — заповніть поле вище.</div>
+				</div>
+			</div>
+			<div class="warn" style="background:#1f2937;padding:12px;border-radius:8px;border:1px solid #374151;">
+				<strong>Guardrails для seo_ready:</strong>
+				<ul>
+					<li>Title унікальний, H1 заповнений</li>
+					<li>Description заповнений, ≥1 image</li>
+					<li>Canonical валідний, категорія обрана</li>
+					<li>Indexing=index, visibility=visible</li>
+				</ul>
+			</div>
+		</div>
+	</form>
+
+	<aside class="card side">
+		<h4>Картка</h4>
+		<div class="preview" {% if let Some(img) = preview_image.as_ref() %}style="background-image:url('{{img}}')" {% endif %}></div>
+		<div class="meta" style="margin-top: 12px;">
+			<div class="meta-row"><span>Бренд</span><strong>{{ product.brand }}</strong></div>
+			<div class="meta-row"><span>Модель</span><strong>{{ product.model.0 }}</strong></div>
+			<div class="meta-row"><span>URL</span><strong style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ product.url.0 }}</strong></div>
+		</div>
+	</aside>
+</div>
+{% endblock %}

@@ -1,0 +1,593 @@
+{% extends "shop/base.html" %}
+{% block head %}
+<link rel="stylesheet" href="/static/export_info.css" />
+<link rel="stylesheet" href="/static/style.css" />
+{% endblock %}
+{% block content %}
+	<header>
+		<form id="update_entry" action="/shop/{{shop.id}}/export_info/{{hash}}" 
+								method="POST">
+			<label id="file_name">
+				Название&nbsp;файла
+				<input id="file_name" type="text" name="file_name" {% if let 
+				Some(n) = export.entry.file_name %}value="{{n}}"{%endif%} />
+			</label>
+			<label for="update_rate">
+				Частота&nbsp;обновления&nbsp;(ч.)
+				<input id="update_rate" type="number" name="update_rate" 
+				value="{{export.entry.update_rate.as_secs() / 60 / 60}}"/>
+			</label>
+		</form>
+		<button form="update_entry">Сохранить</button>
+		<div>
+			<a class="button" 
+			   href="/shop/{{shop.id}}/export_info/{{hash}}?with_new_link">
+				Добавить поставщика
+			</a>
+		</div>
+	</header>
+	<div style="margin-top: 0.75rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
+		<form id="add_parsing_form" method="POST">
+			<select id="add_parsing_select">
+				<option value="">Добавить парсинг…</option>
+				{% if let None = export.entry.dt_parsing %}
+				<option value="/shop/{{shop.id}}/export_info/{{hash}}/add_dt">DT</option>
+				{% endif %}
+				{% if let None = export.entry.op_tuning_parsing %}
+				<option value="/shop/{{shop.id}}/export_info/{{hash}}/add_op_tuning">O&P Tuning</option>
+				{% endif %}
+				{% if let None = export.entry.maxton_parsing %}
+				<option value="/shop/{{shop.id}}/export_info/{{hash}}/add_maxton">Maxton</option>
+				{% endif %}
+				{% if let None = export.entry.pl_parsing %}
+				<option value="/shop/{{shop.id}}/export_info/{{hash}}/add_pl">Скловолокно PL</option>
+				{% endif %}
+				{% if let None = export.entry.skm_parsing %}
+				<option value="/shop/{{shop.id}}/export_info/{{hash}}/add_skm">SKM</option>
+				{% endif %}
+				{% if let None = export.entry.dt_tt_parsing %}
+				<option value="/shop/{{shop.id}}/export_info/{{hash}}/add_dt_tt">DT-TT</option>
+				{% endif %}
+				{% if let None = export.entry.jgd_parsing %}
+				<option value="/shop/{{shop.id}}/export_info/{{hash}}/add_jgd">JGD</option>
+				{% endif %}
+				{% if let None = export.entry.tt_parsing %}
+				<option value="/shop/{{shop.id}}/export_info/{{hash}}/add_tt">TT</option>
+				{% endif %}
+				{% if let None = export.entry.davi_parsing %}
+				<option value="/shop/{{shop.id}}/export_info/{{hash}}/add_davi">Davi</option>
+				{% endif %}
+			</select>
+		</form>
+		<form id="add_api_form" method="POST">
+			<select id="add_api_select">
+				<option value="">Добавить API…</option>
+				{% if let None = export.entry.ddaudio_api %}
+				<option value="/shop/{{shop.id}}/export_info/{{hash}}/add_ddaudio_api">DD Audio API</option>
+				{% endif %}
+			</select>
+		</form>
+	</div>
+{% if let Some(opts) = export.entry.dt_parsing %}
+{% let opts = opts.options.borrow() %}
+	<div class="import group">
+		<h2>Парсинг DT</h2>
+		{% let link_hash = "dt" -%}
+		<form id="save_dt" action="/shop/{{shop.id}}/export_info/{{hash}}/dt" 
+						   method="POST">
+			{% include "all_features.html" %}
+		</form>
+		<form id="remove_dt" 
+			  action="/shop/{{shop.id}}/export_info/{{hash}}/remove_dt" 
+			  method="POST"></form>
+		<div class="buttons">
+			<button form="save_dt" class="save">Сохранить</button>
+			<button form="remove_dt" class="delete">Удалить</button>
+		</div>
+	</div>
+{% endif %}
+	{% if let Some(opts) = export.entry.op_tuning_parsing %}
+	{% let opts = opts.options.borrow() %}
+	<div class="import group">
+		<h2>Парсинг O&amp;P Tuning</h2>
+		{% let link_hash = "op_tuning" -%}
+		<form id="save_op_tuning" action="/shop/{{shop.id}}/export_info/{{hash}}/op_tuning" 
+						   method="POST">
+			{% include "all_features.html" %}
+		</form>
+		<form id="remove_op_tuning" 
+			  action="/shop/{{shop.id}}/export_info/{{hash}}/remove_op_tuning" 
+			  method="POST"></form>
+		<div class="buttons">
+			<button form="save_op_tuning" class="save">Сохранить</button>
+			<button form="remove_op_tuning" class="delete">Удалить</button>
+		</div>
+	</div>
+{% endif %}
+	{% if let Some(opts) = export.entry.maxton_parsing %}
+	{% let opts = opts.options.borrow() %}
+	<div class="import group">
+		<h2>Парсинг Maxton</h2>
+		{% let link_hash = "maxton" -%}
+		<form id="save_maxton" 
+			  action="/shop/{{shop.id}}/export_info/{{hash}}/maxton" 
+			  method="POST">
+			{% include "all_features.html" %}
+		</form>
+		<form id="remove_maxton" 
+			  action="/shop/{{shop.id}}/export_info/{{hash}}/remove_maxton" 
+			  method="POST"></form>
+		<div class="buttons">
+			<button form="save_maxton" class="save">Сохранить</button>
+			<button form="remove_maxton" class="delete">Удалить</button>
+		</div>
+	</div>
+	{% endif %}
+	{% if let Some(opts) = export.entry.jgd_parsing %}
+	{% let opts = opts.options.borrow() %}
+	<div class="import group">
+		<h2>Парсинг JGD</h2>
+		{% let link_hash = "jgd" -%}
+		<form id="save_jgd" 
+			  action="/shop/{{shop.id}}/export_info/{{hash}}/jgd" 
+			  method="POST">
+			{% include "all_features.html" %}
+		</form>
+		<form id="remove_jgd" 
+			  action="/shop/{{shop.id}}/export_info/{{hash}}/remove_jgd" 
+			  method="POST"></form>
+		<div class="controls">
+			<button form="save_jgd" class="save">Сохранить</button>
+			<button form="remove_jgd" class="delete">Удалить</button>
+		</div>
+	</div>
+	{% endif %}
+	{% if let Some(opts) = export.entry.pl_parsing %}
+	{% let opts = opts.options.borrow() %}
+	<div class="import group">
+		<h2>Парсинг Скловолокно PL</h2>
+		{% let link_hash = "pl" -%}
+		<form id="save_pl" 
+			  action="/shop/{{shop.id}}/export_info/{{hash}}/pl" 
+			  method="POST">
+			{% include "all_features.html" %}
+		</form>
+		<form id="remove_pl" 
+			  action="/shop/{{shop.id}}/export_info/{{hash}}/remove_pl" 
+			  method="POST"></form>
+		<div class="controls">
+			<button form="save_pl" class="save">Сохранить</button>
+			<button form="remove_pl" class="delete">Удалить</button>
+		</div>
+	</div>
+	{% endif %}
+	{% if let Some(opts) = export.entry.skm_parsing %}
+	{% let opts = opts.options.borrow() %}
+	<div class="import group">
+		<h2>Парсинг SKM</h2>
+		{% let link_hash = "skm" -%}
+		<form id="save_skm" 
+			  action="/shop/{{shop.id}}/export_info/{{hash}}/skm" 
+			  method="POST">
+			{% include "all_features.html" %}
+		</form>
+		<form id="remove_skm" 
+			  action="/shop/{{shop.id}}/export_info/{{hash}}/remove_skm" 
+			  method="POST"></form>
+		<div class="controls">
+			<button form="save_skm" class="save">Сохранить</button>
+			<button form="remove_skm" class="delete">Удалить</button>
+		</div>
+	</div>
+	{% endif %}
+	{% if let Some(opts) = export.entry.dt_tt_parsing %}
+	{% let opts = opts.options.borrow() %}
+	<div class="import group">
+		<h2>Парсинг DT-TT</h2>
+		{% let link_hash = "dt_tt" -%}
+		<form id="save_dt_tt" 
+			  action="/shop/{{shop.id}}/export_info/{{hash}}/dt_tt" 
+			  method="POST">
+			{% include "all_features.html" %}
+		</form>
+		<form id="remove_dt_tt" 
+			  action="/shop/{{shop.id}}/export_info/{{hash}}/remove_dt_tt" 
+			  method="POST"></form>
+		<div class="controls">
+			<button form="save_dt_tt" class="save">Сохранить</button>
+			<button form="remove_dt_tt" class="delete">Удалить</button>
+		</div>
+	</div>
+	{% endif %}
+	{% if let Some(opts) = export.entry.tt_parsing %}
+	{% let categories = opts.append_categories.borrow() %}
+	{% let opts = opts.options.borrow() %}
+	<div class="import group">
+		<h2>Парсинг TT</h2>
+		{% let link_hash = "tt" -%}
+		<form id="save_tt" action="/shop/{{shop.id}}/export_info/{{hash}}/tt" 
+						   method="POST">
+			{% include "all_features.html" %}
+			<h3>Категории</h3>
+			<div class="group">
+				<input type="radio" class="disable" 
+									id="categories_none_{{link_hash}}" 
+									name="append_categories" value="" />
+				<label for="categories_none_{{link_hash}}">
+					Не добавлять
+				</label>
+				<input id="categories_before_{{link_hash}}" type="radio" 
+															name="append_categories" 
+															value="before_title"
+															{% if let 
+															Some(ParsingCategoriesAction::BeforeTitle 
+															{ separator } ) = 
+															categories 
+															%}checked{% endif 
+															%} />
+				<label for="categories_before_{{link_hash}}">
+					Перед названием
+				</label>
+				<input id="categories_after_{{link_hash}}" type="radio" 
+														   name="append_categories" 
+														   value="after_title" 
+														   {% if let 
+														   Some(ParsingCategoriesAction::AfterTitle 
+														   { separator }
+														   ) = categories 
+														   %}checked{% endif 
+														   %}/>
+				<label for="categories_after_{{link_hash}}">
+					После названия
+				</label>
+				<div class="checkbox-group">
+					<label>
+						Разделитель
+						<input type="text" name="categories_separator" 
+										   value="{% match categories %}
+												  {% when Some with 
+												  (ParsingCategoriesAction::BeforeTitle 
+												  { separator })%}{{separator}}
+												  {% when Some with
+												  (ParsingCategoriesAction::AfterTitle 
+												  { separator })%}
+												  {{separator}}
+												  {% when None %}
+												  {% endmatch %}"
+						/>
+					</label>
+				</div>
+			</div>
+		</form>
+		<form id="remove_tt" 
+			  action="/shop/{{shop.id}}/export_info/{{hash}}/remove_tt" 
+			  method="POST"></form>
+		<div class="buttons">
+			<button form="save_tt" class="save">Сохранить</button>
+			<button form="remove_tt" class="delete">Удалить</button>
+		</div>
+	</div>
+	{% endif %}
+	{% if let Some(opts) = export.entry.davi_parsing %}
+	{% let opts = opts.borrow() %}
+	<div class="import group">
+		<h2>Парсинг Davi</h2>
+		{% let link_hash = "davi" -%}
+		<form id="save_davi" 
+			  action="/shop/{{shop.id}}/export_info/{{hash}}/davi" 
+			  method="POST">
+			{% include "all_features.html" %}
+		</form>
+		<form id="remove_davi" 
+			  action="/shop/{{shop.id}}/export_info/{{hash}}/remove_davi" 
+			  method="POST"></form>
+		<div class="buttons">
+			<button form="save_davi" class="save">Сохранить</button>
+			<button form="remove_davi" class="delete">Удалить</button>
+		</div>
+	</div>
+	{% endif %}
+	{% if let Some(ddaudio) = export.entry.ddaudio_api %}
+	{% let opts = ddaudio.options.borrow() %}
+	{% let link_hash = "ddaudio_api" -%}
+	<details class="import collapsible" open>
+		<summary>
+			<h2>DD Audio API</h2>
+			<span class="hint">API → CSV для Prom. Налаштування зберігаються в цьому експорті.</span>
+		</summary>
+		<div class="collapsible-body">
+			{% if ddaudio_api_error.is_some() %}
+				<p class="hint error">{{ ddaudio_api_error.clone().unwrap_or_default() }}</p>
+			{% endif %}
+			<form id="save_ddaudio_api"
+				  action="/shop/{{shop.id}}/export_info/{{hash}}/ddaudio_api"
+				  method="POST"
+				  class="ddaudio-grid">
+				<div class="ddaudio-row">
+					<label class="ddaudio-section">
+						Токен доступу
+						<input type="text" name="ddaudio_token" value="{{ ddaudio.token }}" placeholder="Bearer token" />
+					</label>
+					<div class="ddaudio-section">
+						<div class="ddaudio-section-title">Мови</div>
+						<div class="ddaudio-checks">
+							<label><input type="checkbox" name="ddaudio_lang" value="ua" {% if ddaudio_api_langs.contains("ua") %}checked{% endif %}/> UA</label>
+							<label><input type="checkbox" name="ddaudio_lang" value="ru" {% if ddaudio_api_langs.contains("ru") %}checked{% endif %}/> RU</label>
+							<label><input type="checkbox" name="ddaudio_lang" value="en" {% if ddaudio_api_langs.contains("en") %}checked{% endif %}/> EN</label>
+						</div>
+						<p class="hint">Для Prom можемо віддавати обидві мови. Для сайту використовується окремий імпорт.</p>
+					</div>
+					<div class="ddaudio-section">
+						<div class="ddaudio-section-title">Опис та характеристики</div>
+						<label class="ddaudio-inline">
+							<input type="checkbox" name="ddaudio_append_attributes" {% if ddaudio.append_attributes %}checked{% endif %}/>
+							Додавати характеристики в опис
+						</label>
+					</div>
+				</div>
+
+				<details class="ddaudio-section">
+					<summary>Склади (DD Audio)</summary>
+					{% if ddaudio_api_warehouses.is_empty() %}
+						<p class="hint">Склади не завантажились. Перевірте токен та ліміти API.</p>
+					{% endif %}
+					<div class="ddaudio-warehouse-grid">
+						{% for wh in ddaudio_api_warehouse_views %}
+							<div class="ddaudio-warehouse-row">
+								<label class="ddaudio-warehouse-label">
+									<input type="checkbox" name="ddaudio_warehouse" value="{{ wh.name }}" {% if wh.checked %}checked{% endif %}/>
+									{{ wh.name }}
+								</label>
+								<input type="hidden" name="ddaudio_warehouse_name" value="{{ wh.name }}" />
+								<select name="ddaudio_warehouse_policy">
+									<option value="inherit" {% if wh.policy != "on_order" && wh.policy != "not_available" %}selected{% endif %}>За залишком</option>
+									<option value="on_order" {% if wh.policy == "on_order" %}selected{% endif %}>Під замовлення</option>
+									<option value="not_available" {% if wh.policy == "not_available" %}selected{% endif %}>Немає в наявності</option>
+								</select>
+							</div>
+						{% endfor %}
+					</div>
+				</details>
+
+				<div class="ddaudio-section">
+					<h4>Правило за замовчуванням</h4>
+					<div class="ddaudio-rule">
+						<label>
+							Тип ціни
+							<select name="ddaudio_default_price_type">
+								<option value="retail" {% if ddaudio.default_rule.price_type == rt_types::shop::DDAudioPriceType::Retail %}selected{% endif %}>Роздріб</option>
+								<option value="wholesale" {% if ddaudio.default_rule.price_type == rt_types::shop::DDAudioPriceType::Wholesale %}selected{% endif %}>Опт</option>
+							</select>
+						</label>
+						<label>Націнка %
+							<input type="number" name="ddaudio_default_markup" step="0.1" value="{{ ddaudio.default_rule.markup_percent.unwrap_or_default() }}"/>
+						</label>
+						<label>Знижка %
+							<input type="number" name="ddaudio_default_discount" value="{{ ddaudio.default_rule.discount_percent.unwrap_or(0) }}"/>
+						</label>
+						<label>Знижка (год.)
+							<input type="number" name="ddaudio_default_discount_hours" value="{{ ddaudio.default_rule.discount_hours.unwrap_or(24) }}"/>
+						</label>
+						<label>
+							0 шт → статус
+							<select name="ddaudio_default_zero_stock">
+								<option value="inherit" {% if ddaudio.default_rule.zero_stock_policy == rt_types::shop::ZeroStockPolicy::Inherit %}selected{% endif %}>Успадкувати</option>
+								<option value="on_order" {% if ddaudio.default_rule.zero_stock_policy == rt_types::shop::ZeroStockPolicy::OnOrder %}selected{% endif %}>Під замовлення</option>
+								<option value="not_available" {% if ddaudio.default_rule.zero_stock_policy == rt_types::shop::ZeroStockPolicy::NotAvailable %}selected{% endif %}>Немає в наявності</option>
+							</select>
+						</label>
+						<label class="ddaudio-inline">
+							<input type="checkbox" name="ddaudio_default_round_to_9" {% if ddaudio.default_rule.round_to_9 %}checked{% endif %}/>
+							Округлювати до 9
+						</label>
+					</div>
+				</div>
+
+				<details class="ddaudio-section">
+					<summary>Категорії DD Audio</summary>
+					{% for cat in ddaudio_api_categories %}
+					<details class="ddaudio-category">
+						<summary>
+							<label style="display:flex; align-items:center; gap:8px;">
+								<input type="checkbox" name="ddaudio_category" value="{{ cat.id }}" {% if cat.checked %}checked{% endif %}/>
+								{{ cat.name }}
+							</label>
+						</summary>
+						<div class="ddaudio-rule">
+							<label>
+								Тип ціни
+								<select name="cat_price_type_{{ cat.id }}">
+									<option value="retail" {% if cat.rule.price_type == "retail" %}selected{% endif %}>Роздріб</option>
+									<option value="wholesale" {% if cat.rule.price_type == "wholesale" %}selected{% endif %}>Опт</option>
+								</select>
+							</label>
+							<label>Націнка %<input type="number" name="cat_markup_{{ cat.id }}" value="{{ cat.rule.markup_percent.unwrap_or_default() }}" step="0.1" /></label>
+							<label>Знижка %<input type="number" name="cat_discount_{{ cat.id }}" value="{{ cat.rule.discount_percent.unwrap_or(0) }}" /></label>
+							<label>Знижка (год.)<input type="number" name="cat_discount_hours_{{ cat.id }}" value="{{ cat.rule.discount_hours.unwrap_or(24) }}" /></label>
+							<label>
+								0 шт → статус
+								<select name="cat_zero_stock_{{ cat.id }}">
+									<option value="inherit" {% if cat.rule.zero_stock_policy == "inherit" %}selected{% endif %}>Успадкувати</option>
+									<option value="on_order" {% if cat.rule.zero_stock_policy == "on_order" %}selected{% endif %}>Під замовлення</option>
+									<option value="not_available" {% if cat.rule.zero_stock_policy == "not_available" %}selected{% endif %}>Немає в наявності</option>
+								</select>
+							</label>
+							<label class="ddaudio-inline">
+								<input type="checkbox" name="cat_round_to_9_{{ cat.id }}" {% if cat.rule.round_to_9 %}checked{% endif %}/>
+								Округлювати до 9
+							</label>
+						</div>
+						{% if cat.children.len() > 0 %}
+						<details class="ddaudio-subcategories">
+							<summary>Підкатегорії</summary>
+							<div class="ddaudio-child">
+								{% for child in cat.children %}
+								<div>
+									<label style="display:flex; align-items:center; gap:8px;">
+										<input type="checkbox" name="ddaudio_subcategory" value="{{ child.id }}" {% if child.checked %}checked{% endif %}/>
+										{{ child.name }}
+									</label>
+									<div class="ddaudio-rule">
+										<label>
+											Тип ціни
+											<select name="sub_price_type_{{ child.id }}">
+												<option value="retail" {% if child.rule.price_type == "retail" %}selected{% endif %}>Роздріб</option>
+												<option value="wholesale" {% if child.rule.price_type == "wholesale" %}selected{% endif %}>Опт</option>
+											</select>
+										</label>
+										<label>Націнка %<input type="number" name="sub_markup_{{ child.id }}" value="{{ child.rule.markup_percent.unwrap_or_default() }}" step="0.1" /></label>
+										<label>Знижка %<input type="number" name="sub_discount_{{ child.id }}" value="{{ child.rule.discount_percent.unwrap_or(0) }}" /></label>
+										<label>Знижка (год.)<input type="number" name="sub_discount_hours_{{ child.id }}" value="{{ child.rule.discount_hours.unwrap_or(24) }}" /></label>
+										<label>
+											0 шт → статус
+											<select name="sub_zero_stock_{{ child.id }}">
+												<option value="inherit" {% if child.rule.zero_stock_policy == "inherit" %}selected{% endif %}>Успадкувати</option>
+												<option value="on_order" {% if child.rule.zero_stock_policy == "on_order" %}selected{% endif %}>Під замовлення</option>
+												<option value="not_available" {% if child.rule.zero_stock_policy == "not_available" %}selected{% endif %}>Немає в наявності</option>
+											</select>
+										</label>
+										<label class="ddaudio-inline">
+											<input type="checkbox" name="sub_round_to_9_{{ child.id }}" {% if child.rule.round_to_9 %}checked{% endif %}/>
+											Округлювати до 9
+										</label>
+									</div>
+								</div>
+								{% endfor %}
+							</div>
+						</details>
+						{% endif %}
+						</details>
+					{% endfor %}
+				</details>
+
+				<div class="ddaudio-section">
+					<h4>Замены слов в заголовке (RU)</h4>
+					<textarea name="ddaudio_replacements_ru" rows="4" placeholder="старое=новое">{% for pair in ddaudio.title_replacements_ru %}{{ pair.0 }}={{ pair.1 }}
+{% endfor %}</textarea>
+				</div>
+				<div class="ddaudio-section">
+					<h4>Замены слов в заголовке (UA)</h4>
+					<textarea name="ddaudio_replacements_ua" rows="4" placeholder="старое=новое">{% for pair in ddaudio.title_replacements_ua %}{{ pair.0 }}={{ pair.1 }}
+{% endfor %}</textarea>
+				</div>
+
+				{% include "all_features.html" %}
+			</form>
+			<form id="remove_ddaudio_api"
+				  action="/shop/{{shop.id}}/export_info/{{hash}}/remove_ddaudio_api"
+				  method="POST"></form>
+			<div class="buttons">
+				<button form="save_ddaudio_api" class="save">Сохранить</button>
+				<button form="remove_ddaudio_api" class="delete">Удалить</button>
+			</div>
+		</div>
+	</details>
+	{% endif %}
+	{% if let Some(links) = export.entry.links %}
+	{% for (i, l) in links.iter().enumerate() %}
+	{% let link_hash = l.hash_with_index(i.into()) -%}
+	<details class="import collapsible">
+		<summary>
+			<h2>{{ l.vendor_name() }}</h2>
+			<div class="badges">
+				{% if let Some(opts) = l.options %}
+					{% if opts.only_available %}<span class="pill">Только в наличии</span>{% endif %}
+					{% if opts.add_vendor %}<span class="pill">Поставщик в заметках</span>{% endif %}
+					{% if opts.categories %}<span class="pill">Категории</span>{% endif %}
+					{% if opts.convert_to_uah %}<span class="pill">UAH</span>{% endif %}
+					{% if opts.delivery_time.is_some() %}<span class="pill">Доставка {{opts.delivery_time.unwrap()}} дн</span>{% endif %}
+					{% if opts.set_availability.is_some() %}
+						{% match opts.set_availability %}
+							{% when Some with (Availability::Available) %}<span class="pill">Наличие: В наличии</span>
+							{% when Some with (Availability::OnOrder) %}<span class="pill">Наличие: Под заказ</span>
+							{% when Some with (Availability::NotAvailable) %}<span class="pill">Наличие: Нет</span>
+							{% when None %}{% endmatch %}
+					{% endif %}
+					{% if opts.adjust_price.is_some() %}<span class="pill">Цена × {{opts.adjust_price.unwrap()}}</span>{% endif %}
+					{% if opts.discount.is_some() %}<span class="pill">Скидка {{opts.discount.as_ref().unwrap().percent}}%</span>{% endif %}
+				{% endif %}
+				<span class="pill pill-ghost">Витрина настраивается в «Товары для сайта»</span>
+				<span class="pill pill-ghost">{{crate::control::parse_vendor(l.link)}}</span>
+			</div>
+		</summary>
+		<div class="collapsible-body">
+			<form id="update_{{link_hash}}"
+				  action="/shop/{{shop.id}}/export_info/{{hash}}/{{link_hash}}" 
+				  method="POST">
+				<div class="group">
+					<label for="vendor_name">Название поставщика</label>
+					<input id="vendor_name" type="text" name="vendor_name" {%if let 
+														Some(vendor) = l.vendor_name 
+														%}value="{{vendor}}"{% endif %}
+														placeholder=
+														"{{crate::control::parse_vendor(l.link)}} (сгенерировано автоматически)"
+														>
+					<div class="placeholder"></div>
+				</div>
+				{% if let Some(opts) = l.options %}
+				{% include "all_features.html" %}
+				{% else %}
+				<input type="hidden" name="publish" value="{{l.publish}}" />
+				{% endif %}
+				<div class="group">
+					<label for="link">Ссылка</label>
+					<textarea id="link" name="link">{{l.link}}</textarea>
+				</div>
+			</form>
+			<form id="remove_{{link_hash}}"
+				  action="/shop/{{shop.id}}/export_info/{{hash}}/{{link_hash}}/remove"
+			method="POST"></form>
+			<div class="buttons">
+				<button class="save" form="update_{{link_hash}}">Сохранить</button>
+				<button class="delete" form="remove_{{link_hash}}">Удалить</button>
+			</div>
+		</div>
+	</details>
+	{% endfor %}
+	{% endif %}
+	{% if with_new_link %}
+	{% let link_hash = "new" -%}
+	<div class="import group">
+		<form id="update_{{link_hash}}"
+			  action="/shop/{{shop.id}}/export_info/{{hash}}/{{link_hash}}" 
+			  method="POST">
+			<h2>Новый поставщик</h2>
+			<div class="group">
+				<label for="vendor_name">Название поставщика</label>
+				<input id="vendor_name" type="text" name="vendor_name">
+				<div class="placeholder"></div>
+			</div>
+			{% let opts = ExportOptions::default() -%}
+			{% include "all_features.html" %}
+			<div class="group">
+				<label for="link">Ссылка</label>
+				<textarea id="link" required name="link"></textarea>
+			</div>
+			<div class="buttons">
+				<button class="save">Сохранить</button>
+			</div>
+		</form>
+	</div>
+	{% endif %}
+	<script src="/static/ddaudio_ui.js" defer></script>
+	<script>
+	const select = document.getElementById('add_parsing_select');
+	const form = document.getElementById('add_parsing_form');
+	if (select && form) {
+		select.addEventListener('change', () => {
+			if (!select.value) return;
+			form.action = select.value;
+			form.submit();
+		});
+	}
+	const apiSelect = document.getElementById('add_api_select');
+	const apiForm = document.getElementById('add_api_form');
+	if (apiSelect && apiForm) {
+		apiSelect.addEventListener('change', () => {
+			if (!apiSelect.value) return;
+			apiForm.action = apiSelect.value;
+			apiForm.submit();
+		});
+	}
+	</script>
+{% endblock %}

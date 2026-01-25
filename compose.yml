@@ -1,0 +1,58 @@
+services:
+  rt-parsing:
+    build: .
+    image: rt-parsing:latest
+    working_dir: /app
+    command: "/app/rt-parsing"
+    environment:
+      POSTGRES_HOST: db
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./watermark:/app/watermark
+      - ./.env:/app/.env
+      - ./storage:/app/storage
+      - ./export:/app/export
+      - ./description:/app/description
+      - ./cfg.d:/app/cfg.d
+      - ./static:/app/static
+      - ./tt_trans.d:/app/tt_trans.d
+      - ./watermark.grp.d:/app/watermark.grp.d
+    restart: always
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE: http://rt-parsing:8080
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_BASE: http://rt-parsing:8080
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+      SITE_API_KEY: ${SITE_API_KEY}
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - rt-parsing
+    restart: always
+  db:
+    image: postgres
+    restart: always
+    hostname: postgres
+    env_file:
+      - path: .env
+    ports:
+      - "5432:5432"
+    volumes:
+      # Postgres 18+ expects data at /var/lib/postgresql (not .../data)
+      - ./pgdata:/var/lib/postgresql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 1s
+      timeout: 5s
+      retries: 10

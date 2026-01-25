@@ -1,0 +1,115 @@
+.shell {
+  padding: 18px 18px 60px;
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.breadcrumbs {
+  font-size: 0.95rem;
+  color: var(--muted);
+  overflow-x: auto;
+  white-space: nowrap;
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.breadcrumbs::-webkit-scrollbar {
+  height: 4px;
+}
+
+.breadcrumbs::-webkit-scrollbar-thumb {
+  background: #111;
+  border-radius: 999px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 15px;
+  align-items: start;
+}
+
+.left {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.media {
+  min-width: 0;
+}
+
+.right {
+  position: sticky;
+  top: 110px;
+  min-width: 0;
+  width: 100%;
+}
+
+.tabs {
+  min-width: 0;
+}
+
+.infoBlock,
+.badgeBlock,
+.installmentBlock,
+.recommendBlock {
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .layout {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    align-items: stretch;
+  }
+
+  .left {
+    display: contents;
+  }
+
+  .right {
+    position: static;
+    display: contents;
+  }
+
+  .media {
+    order: 1;
+    width: 100%;
+  }
+
+  .infoBlock {
+    order: 2;
+    width: 100%;
+  }
+
+  .badgeBlock {
+    order: 3;
+    width: 100%;
+  }
+
+  .installmentBlock {
+    order: 4;
+    width: 100%;
+  }
+
+  .recommendBlock {
+    order: 5;
+    width: 100%;
+  }
+
+  .tabs {
+    order: 6;
+    width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .shell {
+    padding-bottom: 60px;
+  }
+}

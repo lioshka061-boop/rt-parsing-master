@@ -1,0 +1,79 @@
+{% let page = "" %}
+<!DOCTYPE html>
+<html lang="uk">
+	<head>
+		<link rel="stylesheet" href="/static/style.css" />
+		<link rel="stylesheet" href="/static/remixicon.css" />
+		<link rel="stylesheet" href="/static/monitor.css" />
+		{% block head %}{% endblock %}
+	</head>
+	<body>
+		{% let user_opt = crate::control::into_user_option(user) %}
+		{% block nav %}{% endblock %}
+		<div>
+			{% block header %}
+			<header id="header">
+				{% if let Some(user) = user_opt %}
+				<a href="/shops">Мои магазины</a>
+				{% if user.has_access_to_control_panel() %}
+				<a href="/control_panel">Панель управления</a>
+				{% endif %}
+				{% endif %}
+				<div class="placeholder"></div>
+				<button id="theme-toggle" type="button" aria-label="Перемикач теми">
+					<i class="ri-moon-line"></i>
+					<span>Тема</span>
+				</button>
+				{% if let Some(creds) = user_opt %}
+				<a href="/me">{{creds.login}}<i class="ri-user-line"></i></a>
+				{% else %}
+				<a href="/register">Регистрация</a>
+				<a href="/login">Войти</a>
+				{% endif %}
+			</header>
+			{% endblock %}
+			<div id="content">
+				{% block content %}{% endblock %}
+			</div>
+		</div>
+		{% if let Some(user) = user_opt %}
+		{% if user.has_access_to_control_panel() %}
+		<div id="system-monitor" data-endpoint="/control_panel/system_stats">
+			<button type="button" class="monitor-toggle" data-monitor-toggle aria-label="Моніторинг">
+				<i class="ri-pulse-line"></i>
+			</button>
+			<div class="monitor-panel" data-monitor-panel>
+				<div class="monitor-title">Стан сервера</div>
+				<div class="monitor-row" data-monitor-summary>Очікує дані...</div>
+				<div class="monitor-row" data-monitor-imports></div>
+				<div class="monitor-row monitor-errors" data-monitor-errors></div>
+			</div>
+		</div>
+		{% endif %}
+		{% endif %}
+		<script defer src="/static/monitor.js"></script>
+		<script>
+			(() => {
+				const body = document.body;
+				const key = "rt-theme";
+				const icon = () => document.querySelector("#theme-toggle i");
+				const apply = (t) => {
+					body.dataset.theme = t;
+					const i = icon();
+					if (i) {
+						i.className = t === "dark" ? "ri-sun-line" : "ri-moon-line";
+					}
+				};
+				const saved = localStorage.getItem(key);
+				const initial = saved || "dark";
+				apply(initial);
+				const toggle = document.getElementById("theme-toggle");
+				toggle?.addEventListener("click", () => {
+					const next = body.dataset.theme === "dark" ? "light" : "dark";
+					apply(next);
+					localStorage.setItem(key, next);
+				});
+			})();
+		</script>
+	</body>
+</html>

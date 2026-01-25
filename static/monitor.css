@@ -1,0 +1,72 @@
+#system-monitor {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1000;
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+#system-monitor .monitor-toggle {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: none;
+  background: #1f2937;
+  color: #fff;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+#system-monitor .monitor-toggle i {
+  font-size: 18px;
+}
+
+#system-monitor .monitor-panel {
+  position: absolute;
+  right: 0;
+  bottom: 52px;
+  width: 280px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #111827;
+  color: #f3f4f6;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  display: none;
+}
+
+#system-monitor.open .monitor-panel {
+  display: block;
+}
+
+#system-monitor .monitor-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+#system-monitor .monitor-row {
+  font-size: 12px;
+  line-height: 1.4;
+  margin-bottom: 6px;
+  color: #d1d5db;
+}
+
+#system-monitor .monitor-row strong {
+  color: #f9fafb;
+}
+
+#system-monitor .monitor-errors {
+  color: #f87171;
+  max-height: 80px;
+  overflow: auto;
+}
+
+@media (max-width: 640px) {
+  #system-monitor {
+    right: 10px;
+    bottom: 10px;
+  }
+
+  #system-monitor .monitor-panel {
+    width: 240px;
+  }
+}

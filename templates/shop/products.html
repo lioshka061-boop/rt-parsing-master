@@ -1,0 +1,460 @@
+{% extends "shop/base.html" %}
+{% block head %}
+{% let page = "products" %}
+<style>
+.toolbar {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	margin-bottom: 12px;
+	flex-wrap: wrap;
+}
+.toolbar h2 { margin: 0; }
+.toolbar form { display: flex; gap: 10px; align-items: center; flex: 1; min-width: 280px; }
+.toolbar input {
+	flex: 1;
+	padding: 10px 12px;
+	border-radius: 12px;
+	border: 1px solid #1f2937;
+	background: #0b1220;
+	color: #e5e7eb;
+}
+.toolbar select {
+	padding: 10px 12px;
+	border-radius: 12px;
+	border: 1px solid #1f2937;
+	background: #0b1220;
+	color: #e5e7eb;
+}
+.btn {
+	border: 1px solid #1f2937;
+	background: #111827;
+	color: #e5e7eb;
+	padding: 10px 14px;
+	border-radius: 12px;
+	cursor: pointer;
+	text-decoration: none;
+	font-weight: 700;
+}
+.btn.primary { background: #2563eb; border-color: #2563eb; }
+.btn.ghost { background: #111827; color: #9ca3af; }
+.filter-panel {
+	position: relative;
+}
+.filter-panel summary {
+	list-style: none;
+}
+.filter-panel summary::-webkit-details-marker {
+	display: none;
+}
+.filter-panel[open] summary {
+	background: #2563eb;
+	border-color: #2563eb;
+	color: #fff;
+}
+.filter-panel-content {
+	position: absolute;
+	right: 0;
+	top: calc(100% + 8px);
+	min-width: 280px;
+	background: #0b1220;
+	border: 1px solid #1f2937;
+	border-radius: 14px;
+	padding: 12px;
+	display: grid;
+	gap: 10px;
+	z-index: 5;
+	box-shadow: 0 18px 40px rgba(0,0,0,0.35);
+}
+.filter-panel-content label {
+	display: grid;
+	gap: 6px;
+	font-size: 12px;
+	color: #9ca3af;
+}
+.filter-panel-content select {
+	width: 100%;
+}
+
+.list {
+	background: #0b1220;
+	border: 1px solid #1f2937;
+	border-radius: 16px;
+	overflow: hidden;
+}
+.row {
+	display: grid;
+	grid-template-columns: 34px 52px 1.5fr 130px 140px 180px 170px 90px 120px 80px;
+	gap: 12px;
+	align-items: center;
+	padding: 12px 14px;
+	border-bottom: 1px solid rgba(31,41,55,0.8);
+}
+.row.head {
+	position: sticky;
+	top: 0;
+	background: rgba(17, 24, 39, 0.96);
+	backdrop-filter: blur(10px);
+	z-index: 1;
+	font-size: 12px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: #9ca3af;
+}
+.row:last-child { border-bottom: none; }
+.thumb {
+	width: 46px;
+	height: 46px;
+	border-radius: 10px;
+	background: #111827;
+	border: 1px solid #1f2937;
+	background-size: cover;
+	background-position: center;
+}
+.title a { color: #60a5fa; font-weight: 700; }
+.sub { color: #9ca3af; font-size: 12px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desc { color: #9ca3af; font-size: 12px; margin-top: 6px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.pill {
+	display: inline-block;
+	border-radius: 999px;
+	padding: 2px 10px;
+	font-size: 12px;
+	background: #111827;
+	border: 1px solid #1f2937;
+	color: #e5e7eb;
+}
+.pill.green { background:#0f766e; border-color:#0f766e; color:#d1fae5; }
+.pill.yellow { background:#92400e; border-color:#f59e0b; color:#fef3c7; }
+.pill.red { background:#7f1d1d; border-color:#ef4444; color:#fecaca; }
+.pill.blue { background:#1d4ed8; border-color:#2563eb; color:#dbeafe; }
+.price { font-weight: 800; }
+.price .sub { margin-top: 4px; }
+.actions { display: flex; justify-content: flex-end; gap: 8px; }
+.actions a { padding: 8px 10px; border-radius: 10px; border:1px solid #1f2937; background:#111827; color:#e5e7eb; text-decoration:none; }
+.actions form { margin: 0; }
+.actions button { padding: 8px 10px; border-radius: 10px; border: 1px solid #1f2937; background: transparent; color: #ef4444; cursor: pointer; }
+.check { display: flex; justify-content: center; }
+.check input { width: 18px; height: 18px; }
+.bulk-bar { display: grid; gap: 8px; margin-bottom: 12px; }
+.bulk-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.bulk-row select { padding: 8px 10px; border-radius: 12px; border: 1px solid #1f2937; background: #0b1220; color: #e5e7eb; }
+.bulk-row select:disabled { opacity: 0.5; cursor: not-allowed; }
+.bulk-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #9ca3af; }
+.bulk-status.loading { color: #93c5fd; }
+.bulk-status.success { color: #a7f3d0; }
+.bulk-status.error { color: #fecaca; }
+.bulk-status-detail { color: #9ca3af; }
+.spinner {
+	width: 14px;
+	height: 14px;
+	border-radius: 999px;
+	border: 2px solid #1f2937;
+	border-top-color: #60a5fa;
+	display: none;
+	animation: spin 0.9s linear infinite;
+}
+.bulk-status.loading .spinner { display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.pagination { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.btn.ghost.active { background: #2563eb; border-color: #2563eb; color: #fff; }
+
+.status-block { display: grid; gap: 6px; }
+.status-note { color:#9ca3af; font-size:12px; line-height:1.3; }
+.row.needs-setup { background: linear-gradient(90deg, rgba(127,29,29,0.18), transparent); }
+.row.ready { background: linear-gradient(90deg, rgba(15,118,110,0.18), transparent); }
+
+@media (max-width: 980px) {
+	.row { grid-template-columns: 34px 52px 1.2fr 120px; grid-auto-flow: row; }
+	.row > div:nth-child(n+5) { display: none; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<header class="toolbar">
+	<h2>Товари</h2>
+	<form method="get">
+		<input type="text" name="q" placeholder="Пошук за назвою, артикулом, брендом" value="{{ query }}">
+		<details class="filter-panel">
+			<summary class="btn ghost">Фільтр</summary>
+			<div class="filter-panel-content">
+				<label>
+					Постачальник
+					<select name="supplier" aria-label="Постачальник">
+						<option value="" {% if supplier_filter.len() == 0 %}selected{% endif %}>Усі постачальники</option>
+						{% for s in bulk_suppliers %}
+							<option value="{{ s.value }}" {% if supplier_filter == s.value %}selected{% endif %}>{{ s.label }}</option>
+						{% endfor %}
+					</select>
+				</label>
+				<label>
+					Категоризація
+					<select name="missing" aria-label="Фільтр категорій">
+						<option value="" {% if missing_filter.len() == 0 %}selected{% endif %}>Усі товари</option>
+						<option value="auto_category" {% if missing_filter == "auto_category" %}selected{% endif %}>Без категорії авто</option>
+						<option value="product_category" {% if missing_filter == "product_category" %}selected{% endif %}>Без категорії товарів</option>
+					</select>
+				</label>
+				<label>
+					Потребує перевірки
+					<select name="review" aria-label="Потребує перевірки">
+						<option value="" {% if review_filter.len() == 0 %}selected{% endif %}>Усі товари</option>
+						<option value="needs_review" {% if review_filter == "needs_review" %}selected{% endif %}>Будь-яка причина</option>
+						<option value="brand_missing" {% if review_filter == "brand_missing" %}selected{% endif %}>Немає марки</option>
+						<option value="model_missing" {% if review_filter == "model_missing" %}selected{% endif %}>Немає моделі</option>
+						<option value="product_category_missing" {% if review_filter == "product_category_missing" %}selected{% endif %}>Немає категорії товару</option>
+					</select>
+				</label>
+				<label>
+					На сторінці
+					<select name="per_page" aria-label="Кількість на сторінці">
+						<option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+						<option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+						<option value="75" {% if per_page == 75 %}selected{% endif %}>75</option>
+						<option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+					</select>
+				</label>
+			</div>
+		</details>
+		<input type="hidden" name="page" value="1">
+		<button class="btn primary" type="submit">Шукати</button>
+	</form>
+	<a class="btn ghost" href="/shop/{{shop.id}}/site_publish">Налаштування публікації</a>
+	<a class="btn primary" href="/shop/{{shop.id}}/products/new">+ Створити товар</a>
+</header>
+<p class="sub">Зеленим позначені готові до індексації картки (seo_ready + visible + index). Червоним — все, що ще noindex або приховано. Всього: {{ total_items }}.</p>
+
+<div class="bulk-bar">
+	<form id="bulk-form" method="post" action="/shop/{{shop.id}}/products/bulk" class="bulk-row">
+		<input type="hidden" name="q" value="{{ query }}">
+		<input type="hidden" name="missing" value="{{ missing_filter }}">
+		<input type="hidden" name="review" value="{{ review_filter }}">
+		<input type="hidden" name="page" value="{{ page }}">
+		<input type="hidden" name="per_page" value="{{ per_page }}">
+		<select name="action" aria-label="Дія">
+			<option value="show_noindex">Показувати без індексації</option>
+			<option value="hide">Приховати з сайту</option>
+			<option value="set_hit">Додати в хіти продажу</option>
+			<option value="unset_hit">Прибрати з хітів продажу</option>
+		</select>
+		<select name="scope" id="bulk-scope" aria-label="Область дії">
+			<option value="selected">Вибрані товари</option>
+			<option value="supplier">Постачальник</option>
+			<option value="category">Категорія товарів</option>
+		</select>
+		<select name="supplier" id="bulk-supplier" aria-label="Постачальник" disabled>
+			<option value="">Постачальник</option>
+			{% for s in bulk_suppliers %}
+				<option value="{{ s.value }}">{{ s.label }}</option>
+			{% endfor %}
+		</select>
+		<select name="category_id" id="bulk-category" aria-label="Категорія" disabled>
+			<option value="">Категорія</option>
+			{% for c in bulk_categories %}
+				<option value="{{ c.value }}">{{ c.label }}</option>
+			{% endfor %}
+		</select>
+		<button class="btn primary" type="submit">Застосувати</button>
+	</form>
+	<div id="bulk-status" class="bulk-status" hidden aria-live="polite">
+		<span class="spinner" aria-hidden="true"></span>
+		<span id="bulk-status-text"></span>
+		<span id="bulk-status-detail" class="bulk-status-detail"></span>
+	</div>
+	<p class="sub">Дія застосовується до вибраних товарів, або до всіх товарів постачальника/категорії.</p>
+</div>
+
+{% if products.is_empty() %}
+	<p>Товари не знайдено. Запустіть парсинг або змініть фільтр.</p>
+{% else %}
+<div class="list">
+	<div class="row head">
+		<div class="check">
+			<input type="checkbox" id="select-all" form="bulk-form" aria-label="Вибрати всі">
+		</div>
+		<div></div>
+		<div>Назва</div>
+		<div>Дата</div>
+		<div>Код</div>
+		<div>Наявність</div>
+		<div>Статус</div>
+		<div>Хіт</div>
+		<div>Ціна</div>
+		<div></div>
+	</div>
+	{% for p in products %}
+	<div class="row {% if p.configured %}ready{% else %}needs-setup{% endif %}">
+		<div class="check">
+			<input type="checkbox" name="articles" value="{{ p.article }}" form="bulk-form" data-bulk="article" aria-label="Вибрати товар">
+		</div>
+		<div class="thumb" {% if let Some(img) = p.image.as_ref() %}style="background-image:url('{{img}}')" {% endif %}></div>
+		<div class="title">
+			<a href="/shop/{{shop.id}}/products/{{p.article}}/edit">{{ p.title }}</a>
+			<div class="sub">{{ p.brand }} • {{ p.model }}</div>
+			{% if p.description.len() > 0 %}
+				<div class="desc">{{ p.description }}</div>
+			{% endif %}
+		</div>
+		<div class="sub">{{ p.updated_at }}</div>
+		<div><span class="pill">{{ p.article }}</span></div>
+		<div>
+			{% match p.available %}
+				{% when rt_types::Availability::Available %}<span class="pill green">В наявності</span>
+				{% when rt_types::Availability::OnOrder %}<span class="pill yellow">Під замовлення</span>
+				{% when rt_types::Availability::NotAvailable %}<span class="pill">Немає</span>
+			{% endmatch %}
+		</div>
+		<div class="status-block">
+			{% if p.configured %}
+				<span class="pill green">Готово до індексації</span>
+			{% else %}
+				<span class="pill red">Потрібне налаштування</span>
+			{% endif %}
+			<div class="status-note">
+				{{ p.status.as_str() }} • {{ p.visibility_on_site.as_str() }} • {{ p.indexing_status.as_str() }}
+			</div>
+		</div>
+		<div>
+			{% if p.is_hit %}
+				<span class="pill green">Хіт</span>
+			{% else %}
+				<span class="pill">—</span>
+			{% endif %}
+		</div>
+		<div class="price">
+			{% if let Some(price) = p.price %}{{price}} ₴{% else %}—{% endif %}
+			{% if let Some(source_price) = p.source_price %}
+				<div class="sub">імпорт: {{ source_price }} ₴</div>
+			{% endif %}
+		</div>
+		<div class="actions">
+			<a href="/shop/{{shop.id}}/products/{{p.article}}/edit">Редагувати</a>
+			<form method="post" action="/shop/{{shop.id}}/products/{{p.article}}/remove" onsubmit="return confirm('Видалити товар зі списку магазину?')">
+				<button type="submit">Видалити</button>
+			</form>
+		</div>
+	</div>
+	{% endfor %}
+</div>
+{% endif %}
+{% if page_links.len() > 1 %}
+	<div class="pagination">
+		{% for link in page_links %}
+			{% if let Some(url) = link.url %}
+				<a class="btn ghost {% if link.current %}active{% endif %}" href="{{ url }}">{{ link.label }}</a>
+			{% else %}
+				<span class="btn ghost disabled">{{ link.label }}</span>
+			{% endif %}
+		{% endfor %}
+	</div>
+{% endif %}
+
+<script>
+(function() {
+	const selectAll = document.getElementById('select-all');
+	if (selectAll) {
+		selectAll.addEventListener('change', () => {
+			document.querySelectorAll('input[data-bulk="article"]').forEach((el) => {
+				el.checked = selectAll.checked;
+			});
+		});
+	}
+
+	const scope = document.getElementById('bulk-scope');
+	const supplier = document.getElementById('bulk-supplier');
+	const category = document.getElementById('bulk-category');
+	function syncScope() {
+		if (!scope) return;
+		const val = scope.value;
+		if (supplier) supplier.disabled = val !== 'supplier';
+		if (category) category.disabled = val !== 'category';
+	}
+	if (scope) {
+		scope.addEventListener('change', syncScope);
+		syncScope();
+	}
+
+	const bulkForm = document.getElementById('bulk-form');
+	const bulkStatus = document.getElementById('bulk-status');
+	const bulkStatusText = document.getElementById('bulk-status-text');
+	const bulkStatusDetail = document.getElementById('bulk-status-detail');
+	const submitBtn = bulkForm ? bulkForm.querySelector('button[type="submit"]') : null;
+	const submitLabel = submitBtn ? submitBtn.textContent : 'Застосувати';
+	let slowTimer = null;
+
+	function setStatus(state, message, detail) {
+		if (!bulkStatus) return;
+		bulkStatus.hidden = false;
+		bulkStatus.classList.remove('loading', 'error', 'success');
+		if (state) bulkStatus.classList.add(state);
+		if (bulkStatusText) bulkStatusText.textContent = message || '';
+		if (bulkStatusDetail) bulkStatusDetail.textContent = detail || '';
+	}
+
+	function setBusy(busy) {
+		if (!submitBtn) return;
+		submitBtn.disabled = busy;
+		submitBtn.textContent = busy ? 'Застосування...' : submitLabel;
+	}
+
+	function parseErrorMessage(text, status) {
+		if (!text) return status;
+		try {
+			const doc = new DOMParser().parseFromString(text, 'text/html');
+			const h2 = doc.querySelector('h2');
+			if (h2 && h2.textContent) return h2.textContent.trim();
+		} catch (_) {}
+		const trimmed = text.replace(/\s+/g, ' ').trim();
+		return trimmed.length > 180 ? `${trimmed.slice(0, 180)}…` : trimmed || status;
+	}
+
+	if (bulkForm) {
+		bulkForm.addEventListener('submit', async (event) => {
+			event.preventDefault();
+
+			const scopeValue = scope ? scope.value : 'selected';
+			if (scopeValue === 'selected') {
+				const selected = document.querySelectorAll('input[data-bulk="article"]:checked');
+				if (!selected.length) {
+					setStatus('error', 'Помилка', 'Оберіть хоча б один товар.');
+					return;
+				}
+			}
+
+			const formData = new FormData(bulkForm);
+			setBusy(true);
+			setStatus('loading', 'Застосування...', 'Запит виконується.');
+			if (slowTimer) clearTimeout(slowTimer);
+			slowTimer = setTimeout(() => {
+				setStatus('loading', 'Застосування...', 'Запит виконується довше, ніж зазвичай.');
+			}, 8000);
+
+			try {
+				const res = await fetch(bulkForm.action, {
+					method: 'POST',
+					body: formData,
+					headers: { 'X-Requested-With': 'fetch' },
+				});
+				if (slowTimer) clearTimeout(slowTimer);
+				if (res.ok) {
+					setStatus('success', 'Застосування запущено', 'Оновлюємо список...');
+					const nextUrl = res.redirected ? res.url : window.location.href;
+					window.location.assign(nextUrl);
+					return;
+				}
+				const text = await res.text();
+				const status = res.statusText || `HTTP ${res.status}`;
+				const detail = parseErrorMessage(text, status);
+				setStatus('error', `Помилка: ${status}`, detail);
+			} catch (err) {
+				if (slowTimer) clearTimeout(slowTimer);
+				const message = err && err.message ? err.message : 'Невідома помилка';
+				setStatus('error', 'Помилка запиту', message);
+			} finally {
+				setBusy(false);
+			}
+		});
+	}
+})();
+</script>
+{% endblock %}

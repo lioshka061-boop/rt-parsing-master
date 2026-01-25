@@ -1,0 +1,655 @@
+{% extends "shop/base.html" %}
+{% block head %}
+{% let page = "site_publish" %}
+<link rel="stylesheet" href="/static/categories.css" />
+<link rel="stylesheet" href="/static/style.css" />
+<style>
+.suppliers-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	gap: 0.75rem;
+	margin: 1rem 0 1.5rem;
+}
+.suppliers-grid label {
+	display: flex;
+	align-items: center;
+	gap: 0.65rem;
+	padding: 0.75rem 1rem;
+	border-radius: 10px;
+	background: #111827;
+	border: 1px solid #1f2937;
+	cursor: pointer;
+}
+.suppliers-grid input {
+	width: 18px;
+	height: 18px;
+}
+.hint {
+	color: #9ca3af;
+	font-size: 0.95rem;
+}
+.category-pill {
+	display: inline-block;
+	padding: 0.35rem 0.65rem;
+	border-radius: 14px;
+	background: #0f172a;
+	border: 1px solid #1f2937;
+	margin: 0.15rem;
+	font-size: 0.9rem;
+}
+.pill-row { display:flex; gap:8px; flex-wrap:wrap; }
+.pill-row label { display:flex; align-items:center; gap:6px; background:#0f172a; border:1px solid #1f2937; padding:6px 10px; border-radius:12px; }
+.ddaudio-grid {
+	display: grid;
+	gap: 12px;
+}
+.ddaudio-row {
+	display: grid;
+	gap: 10px;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.ddaudio-section {
+	padding: 12px;
+	border-radius: 12px;
+	border: 1px solid #1f2937;
+	background: #0b1220;
+}
+.ddaudio-checks {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	gap: 8px;
+}
+.ddaudio-checks label {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	background: #0f172a;
+	border: 1px solid #1f2937;
+	padding: 8px 10px;
+	border-radius: 10px;
+}
+.ddaudio-warehouse-grid {
+	display: grid;
+	gap: 8px;
+}
+.ddaudio-warehouse-row {
+	display: grid;
+	grid-template-columns: minmax(180px, 1fr) minmax(160px, 220px);
+	gap: 10px;
+	align-items: center;
+}
+.ddaudio-warehouse-label {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+}
+.ddaudio-checks input,
+.ddaudio-rule input[type="checkbox"],
+.ddaudio-section input[type="checkbox"] {
+	accent-color: #22c55e;
+}
+.ddaudio-rule {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+	gap: 8px;
+	margin-top: 8px;
+}
+.ddaudio-rule label {
+	display: grid;
+	gap: 4px;
+	font-size: 0.9rem;
+}
+.ddaudio-category {
+	border: 1px solid #1f2937;
+	border-radius: 10px;
+	padding: 8px 10px;
+	background: #0b1220;
+}
+.ddaudio-category summary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	cursor: pointer;
+	list-style: none;
+}
+.ddaudio-section summary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	cursor: pointer;
+	list-style: none;
+	font-weight: 600;
+}
+.ddaudio-section summary::after,
+.ddaudio-category summary::after,
+.ddaudio-subcategories summary::after {
+	content: "";
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-right: 2px solid #94a3b8;
+	border-bottom: 2px solid #94a3b8;
+	transform: rotate(45deg);
+	transition: transform 0.2s ease;
+	margin-left: 8px;
+}
+.ddaudio-section[open] > summary::after,
+.ddaudio-category[open] > summary::after,
+.ddaudio-subcategories[open] > summary::after {
+	transform: rotate(-135deg);
+}
+.ddaudio-section summary::-webkit-details-marker { display: none; }
+.ddaudio-category summary::-webkit-details-marker { display: none; }
+.ddaudio-subcategories summary::-webkit-details-marker { display: none; }
+.ddaudio-category + .ddaudio-category { margin-top: 8px; }
+.ddaudio-child {
+	padding-left: 16px;
+	margin-top: 8px;
+	display: grid;
+	gap: 8px;
+}
+.ddaudio-subcategories {
+	margin-top: 8px;
+}
+.ddaudio-subcategories summary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	cursor: pointer;
+	font-weight: 600;
+}
+.ddaudio-actions {
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
+	align-items: center;
+}
+.ddaudio-progress {
+	min-width: 220px;
+}
+.ddaudio-progress-bar {
+	height: 8px;
+	background: #1f2937;
+	border-radius: 999px;
+	overflow: hidden;
+}
+.ddaudio-progress-bar > div {
+	height: 100%;
+	background: #10b981;
+}
+.toast-stack {
+	position: fixed;
+	top: 20px;
+	right: 20px;
+	display: grid;
+	gap: 8px;
+	z-index: 9999;
+}
+.toast {
+	min-width: 260px;
+	max-width: 360px;
+	padding: 12px 14px;
+	border-radius: 12px;
+	background: #111827;
+	color: #e5e7eb;
+	border: 1px solid #1f2937;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+	font-size: 0.95rem;
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+}
+.toast.success { border-color: #10b981; }
+.toast.error { border-color: #ef4444; color:#fecdd3; }
+</style>
+{% endblock %}
+{% block content %}
+<header>
+	<div>
+		<h2>Імпорт для сайту</h2>
+		<p class="hint">Окремо від Prom. Тут керуємо XML для сайту та API RESTAL.</p>
+	</div>
+</header>
+
+<section class="card" style="margin-top:1rem;">
+	<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+		<div>
+			<h3>Джерела імпорту для сайту</h3>
+			<p class="hint">Налаштування джерел, оновлення полів та частоти. Натисніть “Редагувати”, щоб змінити параметри.</p>
+		</div>
+		<form action="/shop/{{shop.id}}/site_publish/import" method="POST">
+			<button type="submit" class="save">+ Додати джерело</button>
+		</form>
+	</div>
+	<table class="table" style="margin-top:12px;">
+		<thead>
+			<tr>
+				<th>Назва</th>
+				<th>Джерело</th>
+				<th>Статус</th>
+				<th>Прогрес</th>
+				<th>Помилка</th>
+				<th>Дії</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for s in site_imports %}
+			<tr>
+				<td>{{ s.name }}</td>
+				<td>{{ s.source }}</td>
+				<td>{{ s.status }}</td>
+				<td>
+					{% if let Some(p) = s.progress_percent %}
+						<div style="min-width:120px;">
+							<div style="height:8px; background:#1f2937; border-radius:999px; overflow:hidden;">
+								<div style="width: {{ p }}%; height:100%; background:#10b981;"></div>
+							</div>
+							<small class="hint">{{ s.progress_label.clone().unwrap_or_default() }}</small>
+						</div>
+					{% endif %}
+				</td>
+				<td style="color: #ef4444;">{{ s.error.clone().unwrap_or_default() }}</td>
+				<td style="display:flex; gap:8px;">
+					<form action="/shop/{{shop.id}}/site_publish/import/{{s.hash}}/start" method="POST" class="js-toast-form" data-success="Імпорт запущено">
+						<button type="submit" class="save">Запустити</button>
+					</form>
+					<a class="save" href="/shop/{{shop.id}}/site_publish/import/{{s.hash}}">Редагувати</a>
+					<form action="/shop/{{shop.id}}/site_publish/import/{{s.hash}}/remove" method="POST" class="js-toast-form" data-success="Джерело видалено">
+						<button type="submit" class="save" style="background:#7f1d1d; border-color:#ef4444;">Видалити</button>
+					</form>
+				</td>
+			</tr>
+			{% else %}
+			<tr><td colspan="6">Ще немає налаштованих джерел.</td></tr>
+			{% endfor %}
+		</tbody>
+	</table>
+</section>
+
+<section class="card" style="margin-top:1rem;">
+	<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+		<div>
+			<h3>DD Audio API → сайт</h3>
+			<p class="hint">Окремий імпорт через API DD Audio з правилами цін, складами, категоріями і мовами.</p>
+		</div>
+	</div>
+	{% if ddaudio_error.is_some() %}
+	<p class="hint" style="color:#ef4444;">{{ ddaudio_error.clone().unwrap_or_default() }}</p>
+	{% endif %}
+	<form action="/shop/{{shop.id}}/site_publish/ddaudio" method="POST" class="ddaudio-grid">
+		<div class="ddaudio-row">
+			<label class="ddaudio-section">
+				Token доступу
+				<input type="text" name="ddaudio_token" value="{{ ddaudio_config.token }}" placeholder="Bearer token" />
+			</label>
+			<label class="ddaudio-section">
+				Частота оновлення (год.)
+				<input type="number" name="ddaudio_update_rate_hours" value="{{ ddaudio_config.update_rate.as_secs() / 60 / 60 }}" min="1" />
+			</label>
+			<label class="ddaudio-section" style="display:flex; flex-direction:column; gap:8px;">
+				<span>Автоматичне оновлення</span>
+				<label style="display:flex; align-items:center; gap:8px;">
+					<input type="checkbox" name="ddaudio_auto_update" {% if ddaudio_config.auto_update %}checked{% endif %}/>
+					Увімкнути авто-імпорт (тільки для сайту)
+				</label>
+			</label>
+		</div>
+
+		<div class="ddaudio-row">
+			<label class="ddaudio-section">
+				Мова для сайту
+				<select name="ddaudio_site_lang">
+					<option value="ua" {% if ddaudio_site_lang == "ua" %}selected{% endif %}>UA</option>
+					<option value="ru" {% if ddaudio_site_lang == "ru" %}selected{% endif %}>RU</option>
+					<option value="en" {% if ddaudio_site_lang == "en" %}selected{% endif %}>EN</option>
+				</select>
+			</label>
+			<div class="ddaudio-section">
+				Фото та характеристики
+				<div class="ddaudio-checks" style="margin-top:8px;">
+					<label><input type="checkbox" name="ddaudio_append_images" {% if ddaudio_config.append_images %}checked{% endif %}/> Дописувати фото</label>
+					<label><input type="checkbox" name="ddaudio_append_attributes" {% if ddaudio_config.append_attributes %}checked{% endif %}/> Додавати характеристики в опис</label>
+				</div>
+			</div>
+		</div>
+
+		<div class="ddaudio-section">
+			<h4>Що оновлювати (Site)</h4>
+			<p class="hint">Оновлюється тільки в товарах постачальника DD Audio.</p>
+			<div class="ddaudio-checks">
+				<label><input type="checkbox" name="site_update_title_ru" {% if ddaudio_config.site.update_fields.title_ru %}checked{% endif %}/> Назва (рос.)</label>
+				<label><input type="checkbox" name="site_update_title_ua" {% if ddaudio_config.site.update_fields.title_ua %}checked{% endif %}/> Назва (укр.)</label>
+				<label><input type="checkbox" name="site_update_description_ru" {% if ddaudio_config.site.update_fields.description_ru %}checked{% endif %}/> Опис (рос.)</label>
+				<label><input type="checkbox" name="site_update_description_ua" {% if ddaudio_config.site.update_fields.description_ua %}checked{% endif %}/> Опис (укр.)</label>
+				<label><input type="checkbox" name="site_update_sku" {% if ddaudio_config.site.update_fields.sku %}checked{% endif %}/> Артикул</label>
+				<label><input type="checkbox" name="site_update_price" {% if ddaudio_config.site.update_fields.price %}checked{% endif %}/> Ціна</label>
+				<label><input type="checkbox" name="site_update_images" {% if ddaudio_config.site.update_fields.images %}checked{% endif %}/> Фото</label>
+				<label><input type="checkbox" name="site_update_availability" {% if ddaudio_config.site.update_fields.availability %}checked{% endif %}/> Наявність</label>
+				<label><input type="checkbox" name="site_update_quantity" {% if ddaudio_config.site.update_fields.quantity %}checked{% endif %}/> Кількість</label>
+				<label><input type="checkbox" name="site_update_attributes" {% if ddaudio_config.site.update_fields.attributes %}checked{% endif %}/> Характеристики</label>
+				<label><input type="checkbox" name="site_update_discounts" {% if ddaudio_config.site.update_fields.discounts %}checked{% endif %}/> Знижки</label>
+			</div>
+			<label style="display:grid; gap:6px; margin-top:10px;">
+				Як поводитись з товарами, яких немає у файлі
+				<span class="hint">Застосовується лише до товарів DD Audio, інші товари не чіпаємо.</span>
+				<select name="site_missing_policy">
+					<option value="keep" {% if ddaudio_config.site.missing_policy == rt_types::shop::MissingProductPolicy::Keep %}selected{% endif %}>Залишити без змін</option>
+					<option value="not_available" {% if ddaudio_config.site.missing_policy == rt_types::shop::MissingProductPolicy::NotAvailable %}selected{% endif %}>Немає в наявності</option>
+					<option value="hidden" {% if ddaudio_config.site.missing_policy == rt_types::shop::MissingProductPolicy::Hidden %}selected{% endif %}>Приховати</option>
+					<option value="deleted" {% if ddaudio_config.site.missing_policy == rt_types::shop::MissingProductPolicy::Deleted %}selected{% endif %}>Видалити</option>
+				</select>
+			</label>
+		</div>
+
+		<div class="ddaudio-section">
+			<h4>Замены слов в заголовке (RU)</h4>
+			<textarea name="ddaudio_replacements_ru" rows="4" placeholder="старое=новое">{% for pair in ddaudio_config.title_replacements_ru %}{{ pair.0 }}={{ pair.1 }}
+{% endfor %}</textarea>
+		</div>
+		<div class="ddaudio-section">
+			<h4>Замены слов в заголовке (UA)</h4>
+			<textarea name="ddaudio_replacements_ua" rows="4" placeholder="старое=новое">{% for pair in ddaudio_config.title_replacements_ua %}{{ pair.0 }}={{ pair.1 }}
+{% endfor %}</textarea>
+		</div>
+
+		<details class="ddaudio-section">
+			<summary>Склади (DD Audio)</summary>
+			{% if ddaudio_warehouses.is_empty() %}
+				<p class="hint">Склади не завантажились. Перевірте токен та ліміти API.</p>
+			{% endif %}
+			<div class="ddaudio-warehouse-grid">
+				{% for wh in ddaudio_warehouse_views %}
+					<div class="ddaudio-warehouse-row">
+						<label class="ddaudio-warehouse-label">
+							<input type="checkbox" name="ddaudio_warehouse" value="{{ wh.name }}" {% if wh.checked %}checked{% endif %}/>
+							{{ wh.name }}
+						</label>
+						<input type="hidden" name="ddaudio_warehouse_name" value="{{ wh.name }}" />
+						<select name="ddaudio_warehouse_policy">
+							<option value="inherit" {% if wh.policy != "on_order" && wh.policy != "not_available" %}selected{% endif %}>За залишком</option>
+							<option value="on_order" {% if wh.policy == "on_order" %}selected{% endif %}>Під замовлення</option>
+							<option value="not_available" {% if wh.policy == "not_available" %}selected{% endif %}>Немає в наявності</option>
+						</select>
+					</div>
+				{% endfor %}
+			</div>
+		</details>
+
+		<div class="ddaudio-section">
+			<h4>Правило за замовчуванням</h4>
+			<div class="ddaudio-rule">
+				<label>
+					Тип ціни
+					<select name="ddaudio_default_price_type">
+						<option value="retail" {% if ddaudio_config.default_rule.price_type == crate::site_publish::DDAudioPriceType::Retail %}selected{% endif %}>Роздріб</option>
+						<option value="wholesale" {% if ddaudio_config.default_rule.price_type == crate::site_publish::DDAudioPriceType::Wholesale %}selected{% endif %}>Опт</option>
+					</select>
+				</label>
+				<label>
+					Націнка %
+					<input type="number" name="ddaudio_default_markup" value="{{ ddaudio_config.default_rule.markup_percent.unwrap_or(0.0) }}" step="0.1" />
+				</label>
+				<label>
+					Знижка %
+					<input type="number" name="ddaudio_default_discount" value="{{ ddaudio_config.default_rule.discount_percent.unwrap_or(0) }}" />
+				</label>
+				<label>
+					Знижка (год.)
+					<input type="number" name="ddaudio_default_discount_hours" value="{{ ddaudio_config.default_rule.discount_hours.unwrap_or(24) }}" />
+				</label>
+				<label>
+					0 шт → статус
+					<select name="ddaudio_default_zero_stock">
+						<option value="inherit" {% if ddaudio_config.default_rule.zero_stock_policy == crate::site_publish::ZeroStockPolicy::Inherit %}selected{% endif %}>Успадкувати</option>
+						<option value="on_order" {% if ddaudio_config.default_rule.zero_stock_policy == crate::site_publish::ZeroStockPolicy::OnOrder %}selected{% endif %}>Під замовлення</option>
+						<option value="not_available" {% if ddaudio_config.default_rule.zero_stock_policy == crate::site_publish::ZeroStockPolicy::NotAvailable %}selected{% endif %}>Немає в наявності</option>
+					</select>
+				</label>
+				<label style="display:flex; align-items:center; gap:8px;">
+					<input type="checkbox" name="ddaudio_default_round_to_9" {% if ddaudio_config.default_rule.round_to_9 %}checked{% endif %}/>
+					Округлювати до 9
+				</label>
+			</div>
+		</div>
+
+		<details class="ddaudio-section">
+			<summary>Категорії DD Audio</summary>
+			{% for cat in ddaudio_categories %}
+			<details class="ddaudio-category">
+				<summary>
+					<label style="display:flex; align-items:center; gap:8px;">
+						<input type="checkbox" name="ddaudio_category" value="{{ cat.id }}" {% if cat.checked %}checked{% endif %}/>
+						{{ cat.name }}
+					</label>
+				</summary>
+				<div class="ddaudio-rule">
+					<label>
+						Тип ціни
+						<select name="cat_price_type_{{ cat.id }}">
+							<option value="retail" {% if cat.rule.price_type == "retail" %}selected{% endif %}>Роздріб</option>
+							<option value="wholesale" {% if cat.rule.price_type == "wholesale" %}selected{% endif %}>Опт</option>
+						</select>
+					</label>
+					<label>Націнка %<input type="number" name="cat_markup_{{ cat.id }}" value="{{ cat.rule.markup_percent.unwrap_or(0.0) }}" step="0.1" /></label>
+					<label>Знижка %<input type="number" name="cat_discount_{{ cat.id }}" value="{{ cat.rule.discount_percent.unwrap_or(0) }}" /></label>
+					<label>Знижка (год.)<input type="number" name="cat_discount_hours_{{ cat.id }}" value="{{ cat.rule.discount_hours.unwrap_or(24) }}" /></label>
+					<label>
+						0 шт → статус
+						<select name="cat_zero_stock_{{ cat.id }}">
+							<option value="inherit" {% if cat.rule.zero_stock_policy == "inherit" %}selected{% endif %}>Успадкувати</option>
+							<option value="on_order" {% if cat.rule.zero_stock_policy == "on_order" %}selected{% endif %}>Під замовлення</option>
+							<option value="not_available" {% if cat.rule.zero_stock_policy == "not_available" %}selected{% endif %}>Немає в наявності</option>
+						</select>
+					</label>
+					<label style="display:flex; align-items:center; gap:8px;">
+						<input type="checkbox" name="cat_round_to_9_{{ cat.id }}" {% if cat.rule.round_to_9 %}checked{% endif %}/>
+						Округлювати до 9
+					</label>
+				</div>
+				{% if cat.children.len() > 0 %}
+				<details class="ddaudio-subcategories">
+					<summary>Підкатегорії</summary>
+					<div class="ddaudio-child">
+						{% for child in cat.children %}
+						<div>
+							<label style="display:flex; align-items:center; gap:8px;">
+								<input type="checkbox" name="ddaudio_subcategory" value="{{ child.id }}" {% if child.checked %}checked{% endif %}/>
+								{{ child.name }}
+							</label>
+							<div class="ddaudio-rule">
+								<label>
+									Тип ціни
+									<select name="sub_price_type_{{ child.id }}">
+										<option value="retail" {% if child.rule.price_type == "retail" %}selected{% endif %}>Роздріб</option>
+										<option value="wholesale" {% if child.rule.price_type == "wholesale" %}selected{% endif %}>Опт</option>
+									</select>
+								</label>
+								<label>Націнка %<input type="number" name="sub_markup_{{ child.id }}" value="{{ child.rule.markup_percent.unwrap_or(0.0) }}" step="0.1" /></label>
+								<label>Знижка %<input type="number" name="sub_discount_{{ child.id }}" value="{{ child.rule.discount_percent.unwrap_or(0) }}" /></label>
+								<label>Знижка (год.)<input type="number" name="sub_discount_hours_{{ child.id }}" value="{{ child.rule.discount_hours.unwrap_or(24) }}" /></label>
+								<label>
+									0 шт → статус
+									<select name="sub_zero_stock_{{ child.id }}">
+										<option value="inherit" {% if child.rule.zero_stock_policy == "inherit" %}selected{% endif %}>Успадкувати</option>
+										<option value="on_order" {% if child.rule.zero_stock_policy == "on_order" %}selected{% endif %}>Під замовлення</option>
+										<option value="not_available" {% if child.rule.zero_stock_policy == "not_available" %}selected{% endif %}>Немає в наявності</option>
+									</select>
+								</label>
+								<label style="display:flex; align-items:center; gap:8px;">
+									<input type="checkbox" name="sub_round_to_9_{{ child.id }}" {% if child.rule.round_to_9 %}checked{% endif %}/>
+									Округлювати до 9
+								</label>
+							</div>
+						</div>
+						{% endfor %}
+					</div>
+				</details>
+				{% endif %}
+				</details>
+			{% endfor %}
+		</details>
+
+		<div class="ddaudio-actions">
+			<button type="submit" class="save">Зберегти налаштування</button>
+		</div>
+	</form>
+
+	<div class="ddaudio-actions" style="margin-top:12px;">
+		<form action="/shop/{{shop.id}}/api/site_publish/ddaudio/import?target=site" method="POST" class="js-toast-form" data-success="DD Audio імпорт (site) запущено">
+			<button type="submit" class="save">Запустити імпорт (Site)</button>
+		</form>
+		<div class="ddaudio-progress">
+			<div class="hint" id="ddaudio-status-label">Статус: {{ ddaudio_status.status }}</div>
+			<div class="ddaudio-progress-bar" id="ddaudio-progress-bar" {% if ddaudio_status.progress.is_none() %}style="display:none;"{% endif %}>
+				<div style="width: {% if let Some(p) = ddaudio_status.progress.as_ref() %}{{ (p.done.saturating_mul(100) / p.total.max(1)) }}{% else %}0{% endif %}%;"></div>
+			</div>
+			<div class="hint" id="ddaudio-progress-text">
+				{% if let Some(p) = ddaudio_status.progress.as_ref() %}
+					{{ p.stage }} ({{ p.done }} / {{ p.total }})
+				{% endif %}
+			</div>
+			<div class="hint" id="ddaudio-error" style="color:#ef4444;">
+				{% if ddaudio_status.last_error.is_some() %}
+					{{ ddaudio_status.last_error.clone().unwrap_or_default() }}
+				{% endif %}
+			</div>
+		</div>
+	</div>
+</section>
+
+<section class="card" style="margin-top:1rem; display:grid; gap:10px;">
+	<h3>Постачальники/парсинги, які показуємо на сайті</h3>
+	<p class="hint">Позначте потрібні. Решта будуть приховані фільтром API (не відображаються на сайті).</p>
+	<form action="/shop/{{shop.id}}/site_publish/allowed" method="POST" class="js-toast-form" data-success="Список постачальників оновлено" style="display:grid; gap:10px;">
+		<div class="pill-row">
+			{% for s in supplier_options %}
+				<label><input type="checkbox" name="suppliers" value="{{ s.key }}" {% if s.checked %}checked{% endif %}/> {{ s.label }}</label>
+			{% endfor %}
+		</div>
+		<div style="display:flex; gap:10px; flex-wrap:wrap;">
+			<button type="submit" class="save">Зберегти вибір</button>
+		</div>
+	</form>
+	<form action="/shop/{{shop.id}}/site_publish/purge_supplier" method="POST" class="js-toast-form" data-success="Товари постачальника приховано" style="display:flex; gap:6px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+		<label class="hint">Сховати всі товари постачальника</label>
+		<select name="supplier" class="form-control">
+			{% for s in supplier_options %}
+				<option value="{{ s.key }}">{{ s.label }}</option>
+			{% endfor %}
+		</select>
+		<button type="submit" class="save" style="background:#7f1d1d; border-color:#ef4444;">Сховати товари</button>
+	</form>
+	<p class="hint">Після зміни вибору / сховання перезапустіть фронт або оновіть сторінку каталогу, щоб API віддавало новий список.</p>
+</section>
+
+{% if allow_restal %}
+<section class="card" style="margin-top: 1rem; display:grid; gap:10px;">
+	<h3>RESTAL → сайт</h3>
+	<p class="hint">Тягне товари RESTAL по API і публікує в БД сайту. Використовує ключ вище.</p>
+	<form action="/shop/{{shop.id}}/api/site_publish/restal/import" method="POST" class="js-toast-form" data-success="RESTAL імпорт запущено" style="display:flex; gap:10px; align-items:center;">
+		<button type="submit" class="save">Імпортувати RESTAL</button>
+		<span class="hint">Результат: JSON з кількістю imported</span>
+	</form>
+</section>
+{% endif %}
+<div id="toast-stack" class="toast-stack" aria-live="polite"></div>
+<script src="/static/ddaudio_ui.js" defer></script>
+<script>
+(function() {
+	const stack = document.getElementById('toast-stack');
+	function showToast(message, type = 'success') {
+		if (!stack) return;
+		const node = document.createElement('div');
+		node.className = `toast ${type}`;
+		node.textContent = message;
+		stack.appendChild(node);
+		setTimeout(() => node.remove(), 4200);
+	}
+	function looksLikeHtml(text) {
+		return /<html|<head|<body|<nav|<div|<style/i.test(text);
+	}
+
+	document.querySelectorAll('form.js-toast-form').forEach((form) => {
+		form.addEventListener('submit', async (ev) => {
+			ev.preventDefault();
+			const btn = form.querySelector('button[type="submit"]');
+			if (btn) btn.disabled = true;
+			try {
+				const method = (form.method || 'POST').toUpperCase();
+				const fd = new FormData(form);
+				const params = new URLSearchParams();
+				for (const [key, value] of fd.entries()) {
+					params.append(key, value.toString());
+				}
+				const res = await fetch(form.action, {
+					method,
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+					body: params,
+				});
+				const ct = res.headers.get('content-type') || '';
+				let message = form.dataset.success || 'Готово';
+				if (ct.includes('application/json')) {
+					try {
+						const data = await res.json();
+						if (data && typeof data.message === 'string') {
+							message = data.message;
+						}
+					} catch (_) {
+						/* ignore json parse */
+					}
+				} else {
+					const text = await res.text();
+					const trimmed = text.trim();
+					if (trimmed && !looksLikeHtml(trimmed)) {
+						message = trimmed;
+					} else if (!res.ok) {
+						message = res.statusText || `HTTP ${res.status}`;
+					}
+				}
+				showToast(res.ok ? message : `Помилка: ${message}`, res.ok ? 'success' : 'error');
+			} catch (err) {
+				showToast(`Помилка: ${err}`, 'error');
+			} finally {
+				if (btn) btn.disabled = false;
+			}
+		});
+	});
+
+	const statusLabel = document.getElementById('ddaudio-status-label');
+	const progressBar = document.getElementById('ddaudio-progress-bar');
+	const progressFill = progressBar ? progressBar.querySelector('div') : null;
+	const progressText = document.getElementById('ddaudio-progress-text');
+	const errorBox = document.getElementById('ddaudio-error');
+
+	async function pollDDAudioStatus() {
+		if (!statusLabel) return;
+		try {
+			const res = await fetch('/shop/{{shop.id}}/api/site_publish/ddaudio/status', { cache: 'no-store' });
+			if (!res.ok) return;
+			const data = await res.json();
+			statusLabel.textContent = `Статус: ${data.status}`;
+			if (data.progress && progressBar && progressFill) {
+				const total = Math.max(1, data.progress.total || 1);
+				const percent = Math.min(100, Math.floor((data.progress.done || 0) * 100 / total));
+				progressBar.style.display = 'block';
+				progressFill.style.width = `${percent}%`;
+				if (progressText) {
+					progressText.textContent = `${data.progress.stage} (${data.progress.done} / ${data.progress.total})`;
+				}
+			} else {
+				if (progressBar) progressBar.style.display = 'none';
+				if (progressText) progressText.textContent = '';
+			}
+			if (errorBox) {
+				errorBox.textContent = data.last_error || '';
+			}
+		} catch (_) {
+			// ignore polling errors
+		}
+	}
+
+	setInterval(pollDDAudioStatus, 5000);
+})();
+</script>
+{% endblock %}

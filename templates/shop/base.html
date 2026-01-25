@@ -1,0 +1,57 @@
+{% extends "../base.html" %}
+{% block nav %}
+<link rel="stylesheet" href="/static/shop.css" />
+<link rel="stylesheet" href="/static/nav.css" />
+<nav id="nav">
+	<span class="nav-title">
+		<a href="/shop/{{shop.id}}">{{shop.name}}</a>
+		{% if shop.is_suspended %}
+			<i class="warning ri-alert-fill" 
+				title="Работа этого магазина приостановлена"></i>
+		{% endif %}
+	</span>
+	<div class="entries">
+		<a href="/shop/{{shop.id}}" {% if page == "index" %}class="current"{% 
+		   endif %}>
+			<i class="ri-import-line"></i>Импорт Prom
+		</a>
+		<a href="/shop/{{shop.id}}/products" {% if page == "products" %}class="current"{% endif %}>
+			<i class="ri-store-2-line"></i>Товары
+		</a>
+		<a href="/shop/{{shop.id}}/seo_pages" {% if page == "seo_pages" %}class="current"{% endif %}>
+			<i class="ri-file-search-line"></i>SEO-сторінки
+		</a>
+		<a href="/shop/{{shop.id}}/description" {% if page == "description" 
+		   %}class="current"{% endif %}>
+			<i class="ri-article-line"></i>Описания
+		</a>
+		<a href="/shop/{{shop.id}}/categories" {% if page == "categories" 
+		   %}class="current"{% endif %}>
+			<i class="ri-archive-stack-line"></i>Категории авто
+		</a>
+		<a href="/shop/{{shop.id}}/product_categories" {% if page == "product_categories" 
+		   %}class="current"{% endif %}>
+			<i class="ri-price-tag-3-line"></i>Категории товаров
+		</a>
+		<a href="/shop/{{shop.id}}/site_publish" {% if page == "site_publish" 
+		   %}class="current"{% endif %}>
+			<i class="ri-earth-line"></i>Товары для сайта
+		</a>
+		<a href="/shop/{{shop.id}}/crm" {% if page == "crm" %}class="current"{% endif %}>
+			<i class="ri-customer-service-2-line"></i>CRM / Замовлення
+		</a>
+		<a href="/shop/{{shop.id}}/watermark" {% if page == "watermark" 
+		   %}class="current"{% endif %}>
+			<i class="ri-image-edit-line"></i>Прокси для изображений
+		</a>
+		<a href="/shop/{{shop.id}}/files" {% if page == "files" 
+		   %}class="current"{% endif %}>
+			<i class="ri-folder-line"></i>Файли
+		</a>
+		<a href="/shop/{{shop.id}}/settings" {% if page == "settings" 
+		   %}class="current"{% endif %}>
+			<i class="ri-settings-2-line"></i>Настройки
+		</a>
+	</div>
+</nav>
+{% endblock %}

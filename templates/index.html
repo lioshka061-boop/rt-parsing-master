@@ -1,0 +1,354 @@
+{% extends "shop/base.html" %}
+{% block head %}
+{% let page = "index" %}
+<link rel="stylesheet" href="/static/index.css" />
+{% endblock %}
+{% block content %}
+<div>
+	<div class="group">
+		<h1>Импорт Prom</h1>
+		<div class="placeholder"></div>
+		<form action="/shop/{{shop.id}}/export_info" method="POST">
+			<button>
+				<i class="ri-add-line"></i>
+			</button>
+		</form>
+	</div>
+	<div class="list">
+		{% for (hash, export, formats) in export_status %}
+		{% let e = export.entry() -%}
+		{% let status = export.status() -%}
+		<div class="group-wrapper">
+			<details class="import group">
+				<summary>
+					<div class="heading">
+						{% if let Some(file_name) = e.file_name %}
+						<h2>{{file_name}}</h2>
+						{% else %}
+						<h2>{{e.file_name(None)}}</h2>
+						{% endif %}
+					</div>
+					<div class="placeholder"></div>
+					{% if let ExportStatus::Enqueued = status %}
+					<div class="status enqueued"><span 
+						 class="note">{{ExportStatus::Enqueued}}</span></div>
+					{% endif %}
+					{% if let ExportStatus::InProgress = status %}
+					<div class="status in_progress"><span 
+							class="note">{{ExportStatus::InProgress}}</span></div>
+					{% endif %}
+					{% if let ExportStatus::Success = status %}
+					<div class="status success"><span 
+						 class="note">{{ExportStatus::Success}}</span></div>
+					{% endif %}
+					{% if let ExportStatus::Suspended = status %}
+					<div class="status suspended"><span 
+						 class="note">{{ExportStatus::Suspended}}</span></div>
+					{% endif %}
+					{% if let ExportStatus::Failure(msg) = status %}
+					<div class="status error">
+						<span class="note">{{status}}</span>
+					</div>
+					{% endif %}
+					{% if let Some(p) = export.progress %}
+					<div class="status in_progress progress-inline">
+						<span class="note">{{p.stage}} ({{p.done}} / {{p.total}})</span>
+					</div>
+					{% endif %}
+					{% if formats.len() > 0 %}
+					<div class="inline-download quick-download" data-export="{{hash}}">
+						<select class="quick-download__select">
+							{% for (format, info) in formats %}
+							<option value="/export/{{shop.id}}/{{info.name}}">
+								{{format.to_string()}} ({{info.format_size()}})
+							</option>
+							{% endfor %}
+						</select>
+						<button class="button small quick-download__btn" data-action="download" title="Скачать выбранный файл">
+							<i class="ri-download-cloud-2-line"></i>
+						</button>
+						<button class="button small quick-download__btn" data-action="copy" title="Скопировать ссылку">
+							<i class="ri-link"></i>
+						</button>
+						{% if let Some((_, info)) = formats.first() %}
+						<span class="last-modified-inline">
+							<i class="ri-time-line"></i> {{info.format_modified_ago()}} назад
+						</span>
+						{% endif %}
+					</div>
+					{% endif %}
+				</summary>
+				<div>
+					{% if let Some(opts) = e.dt_parsing %}
+					{% let opts = opts.options.borrow() %}
+					<details>
+						<summary><h3>Парсинг DT</h3></summary>
+						<div class="features">
+							{% include "opts_features.html" %}
+						</div>
+					</details>
+					{% endif %}
+					{% if let Some(opts) = e.maxton_parsing %}
+					{% let opts = opts.options.borrow() %}
+					<details>
+						<summary><h3>Парсинг Maxton</h3></summary>
+						<div class="features">
+							{% include "opts_features.html" %}
+						</div>
+					</details>
+					{% endif %}
+					{% if let Some(opts) = e.jgd_parsing %}
+					{% let opts = opts.options.borrow() %}
+					<details>
+						<summary><h3>Парсинг JGD</h3></summary>
+						<div class="features">
+							{% include "opts_features.html" %}
+						</div>
+					</details>
+					{% endif %}
+					{% if let Some(opts) = e.pl_parsing %}
+					{% let opts = opts.options.borrow() %}
+					<details>
+						<summary><h3>Парсинг Скловолокно PL</h3></summary>
+						<div class="features">
+							{% include "opts_features.html" %}
+						</div>
+					</details>
+					{% endif %}
+					{% if let Some(opts) = e.skm_parsing %}
+					{% let opts = opts.options.borrow() %}
+					<details>
+						<summary><h3>Парсинг SKM</h3></summary>
+						<div class="features">
+							{% include "opts_features.html" %}
+						</div>
+					</details>
+					{% endif %}
+					{% if let Some(opts) = e.dt_tt_parsing %}
+					{% let opts = opts.options.borrow() %}
+					<details>
+						<summary><h3>Парсинг DT-TT</h3></summary>
+						<div class="features">
+							{% include "opts_features.html" %}
+						</div>
+					</details>
+					{% endif %}
+					{% if let Some(opts) = e.tt_parsing %}
+					{% let opts = opts.options.borrow() %}
+					<details>
+						<summary><h3>Парсинг TT</h3></summary>
+						<div class="features">
+							{% include "opts_features.html" %}
+						</div>
+					</details>
+					{% endif %}
+					{% if let Some(links) = e.links %}
+					{% for l in links %}
+					<details>
+						<summary><h3>{{ l.vendor_name() }}</h3></summary>
+						{% if let Some(opts) = l.options %}
+						<div class="features">
+							{% include "opts_features.html" %}
+						</div>
+						{% endif %}
+						<details>
+							<summary>Ссылка</summary>
+							<span>
+								<a href="{{l.link}}">{{l.link}}</a>
+							</span>
+						</details>
+					</details>
+					{% endfor %}
+					{% endif %}
+				</div>
+			</details>
+			<div class="buttons">
+				<form action="/shop/{{shop.id}}/start_export/{{hash}}" 
+					  method="POST">
+					{% if let ExportStatus::InProgress = status %}
+					<button class="export" disabled>
+						<i class="ri-refresh-line"></i>
+					</button>
+					{% else if shop.is_suspended %}
+					<button class="export" disabled>
+						<i class="ri-refresh-line"></i>
+					</button>
+					{% else %}
+					{% if let Some((_, info)) = formats.first() %}
+					{% if info.last_modified < e.edited_time %}
+					<button class="export expired" title="Настройки экспорта были изменены с момента последнего обновления">
+						<i class="ri-refresh-line"></i>
+					</button>
+					{% else %}
+					<button class="export">
+						<i class="ri-refresh-line"></i>
+					</button>
+					{% endif %}
+					{% else %}
+					<button class="export">
+						<i class="ri-refresh-line"></i>
+					</button>
+					{% endif %}
+					{% endif %}
+				</form>
+				<a class="button edit" 
+				   href="/shop/{{shop.id}}/export_info/{{hash}}">
+					<i class="ri-settings-3-line"></i>
+				</a>
+				<form action="/shop/{{shop.id}}/copy_export/{{hash}}" 
+					method="POST">
+					<button class="export" {% if shop.is_suspended %}disabled{% 
+							endif %}>
+						<i class="ri-file-copy-line"></i>
+					</button>
+				</form>
+				<form action="/shop/{{shop.id}}/export_info/{{hash}}/remove" 
+					  method="POST">
+					<button class="delete" {% if shop.is_suspended 
+							%}disabled{%endif%}>
+						<i class="ri-delete-bin-line"></i>
+					</button>
+				</form>
+			</div>
+		</div>
+		{% endfor %}
+	</div>
+	</div>
+	<div id="live-status" class="live-status" aria-live="polite"></div>
+	<script>
+	(() => {
+		const indicator = document.getElementById('live-status');
+		if (!indicator) return;
+		const shopId = "{{ shop.id }}";
+		let lastSignature = null;
+
+		const parseStatus = (status) => {
+			if (typeof status === 'string') return status;
+			if (status && typeof status === 'object') {
+				const [key] = Object.keys(status);
+				return key || 'Unknown';
+			}
+			return 'Unknown';
+		};
+
+		const setIndicator = (state, text) => {
+			indicator.dataset.state = state;
+			indicator.textContent = text;
+			indicator.classList.add('show');
+			if (state === 'idle') {
+				setTimeout(() => indicator.classList.remove('show'), 1500);
+			}
+		};
+
+		const refresh = async () => {
+			let data;
+			try {
+				const res = await fetch(`/shop/${shopId}/status`, { cache: 'no-cache' });
+				data = await res.json();
+			} catch (_err) {
+				setIndicator('error', 'Нет связи со статусом экспорта');
+				return;
+			}
+
+			if (!Array.isArray(data)) return;
+			const signature = data
+				.map(d => `${d.hash}:${parseStatus(d.status)}:${d.ready}:${(d.progress && d.progress.done) || 0}:${(d.progress && d.progress.total) || 0}`)
+				.join('|');
+			const statuses = data.map(d => parseStatus(d.status));
+			const working = statuses.some(s => s === 'InProgress' || s === 'Enqueued');
+			const failed = statuses.filter(s => s === 'Failure').length;
+
+			if (working) {
+				const inProgress = data.find(d => parseStatus(d.status) === 'InProgress');
+				if (inProgress && inProgress.progress) {
+					const { done, total, stage } = inProgress.progress;
+					const percent = total ? Math.round((Math.min(done, total) / total) * 100) : 0;
+					setIndicator('working', `${stage} (${done}/${total}, ${percent}%)`);
+				} else {
+					const count = statuses.filter(s => s === 'InProgress' || s === 'Enqueued').length;
+					setIndicator('working', `Экспорт обновляется (${count})`);
+				}
+			} else if (failed) {
+				setIndicator('error', `Ошибка экспорта (${failed})`);
+			} else {
+				setIndicator('idle', 'Все экспорты готовы');
+				if (lastSignature && signature !== lastSignature) {
+					window.location.reload();
+					return;
+				}
+			}
+
+			lastSignature = signature;
+		};
+
+		setIndicator('idle', 'Проверяем статус…');
+		refresh();
+		setInterval(refresh, 3500);
+	})();
+
+	(() => {
+		const fallbackCopy = (text) => {
+			if (!text) return false;
+			const textarea = document.createElement('textarea');
+			textarea.value = text;
+			textarea.setAttribute('readonly', '');
+			textarea.style.position = 'absolute';
+			textarea.style.left = '-9999px';
+			document.body.appendChild(textarea);
+			textarea.select();
+			textarea.setSelectionRange(0, textarea.value.length);
+			const ok = document.execCommand('copy');
+			textarea.remove();
+			return ok;
+		};
+
+		document.querySelectorAll('.quick-download').forEach(block => {
+			const select = block.querySelector('.quick-download__select');
+			const downloadBtn = block.querySelector('[data-action="download"]');
+			const copyBtn = block.querySelector('[data-action="copy"]');
+			if (!select) return;
+
+			const getUrl = () => select.value;
+
+			downloadBtn?.addEventListener('click', (e) => {
+				e.preventDefault();
+				const url = getUrl();
+				if (url) window.location.href = url;
+			});
+
+			copyBtn?.addEventListener('click', (e) => {
+				e.preventDefault();
+				const url = getUrl();
+				if (!url) return;
+				try {
+					const fullUrl = new URL(url, window.location.origin).toString();
+					if (navigator.clipboard && navigator.clipboard.writeText) {
+						navigator.clipboard.writeText(fullUrl).then(() => {
+							copyBtn.classList.add('copied');
+							setTimeout(() => copyBtn.classList.remove('copied'), 1200);
+						}).catch(() => {
+							const ok = fallbackCopy(fullUrl);
+							if (ok) {
+								copyBtn.classList.add('copied');
+								setTimeout(() => copyBtn.classList.remove('copied'), 1200);
+							} else {
+								window.prompt('Скопіюйте посилання', fullUrl);
+							}
+						});
+						return;
+					}
+					const ok = fallbackCopy(fullUrl);
+					if (ok) {
+						copyBtn.classList.add('copied');
+						setTimeout(() => copyBtn.classList.remove('copied'), 1200);
+					} else {
+						window.prompt('Скопіюйте посилання', fullUrl);
+					}
+				} catch (_err) {
+					window.prompt('Скопіюйте посилання', new URL(url, window.location.origin).toString());
+				}
+			});
+		});
+	})();
+	</script>
+{% endblock %}

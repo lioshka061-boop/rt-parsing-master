@@ -1,0 +1,53 @@
+{% extends "shop/base.html" %}
+{% block head %}
+{% let page = "crm" %}
+<style>
+	.crm-grid {
+		display: grid;
+		gap: 16px;
+		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+		margin-top: 16px;
+	}
+	.crm-card {
+		border: 1px solid var(--border);
+		border-radius: 14px;
+		padding: 16px;
+		background: var(--panel);
+		text-decoration: none;
+		color: var(--text);
+		display: grid;
+		gap: 8px;
+		box-shadow: var(--shadow);
+		transition: border-color 0.15s ease, transform 0.15s ease;
+	}
+	.crm-card:hover {
+		border-color: var(--accent);
+		transform: translateY(-1px);
+	}
+	.crm-card h3 {
+		margin: 0;
+	}
+	.crm-card p {
+		margin: 0;
+		color: var(--muted);
+	}
+</style>
+{% endblock %}
+{% block content %}
+<h2>CRM</h2>
+<p>Тут зібрані заявки, замовлення та користувачі.</p>
+<div class="crm-grid">
+	<a class="crm-card" href="/shop/{{shop.id}}/crm/quick_orders">
+		<h3>Швидке замовлення</h3>
+		<p>Телефони клієнтів з форми «в 1 клік».</p>
+	</a>
+	<a class="crm-card" href="/shop/{{shop.id}}/crm/orders">
+		<h3>Замовлення</h3>
+		<p>Список звичайних замовлень.</p>
+	</a>
+	<a class="crm-card" href="/shop/{{shop.id}}/crm/users">
+		<h3>Зареєстровані користувачі</h3>
+		<p>Клієнти, що мають облікові записи.</p>
+	</a>
+</div>
+{% endblock %}

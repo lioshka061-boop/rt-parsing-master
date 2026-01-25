@@ -1,0 +1,198 @@
+{% extends "shop/base.html" %}
+{% block head %}
+{% let page = "files" %}
+<link rel="stylesheet" href="/static/files.css" />
+<style>
+.files-container {
+	background: #111827;
+	border: 1px solid #1f2937;
+	border-radius: 16px;
+	padding: 20px;
+}
+.files-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 20px;
+}
+.files-header h2 {
+	margin: 0;
+	color: #e5e7eb;
+}
+.files-stats {
+	color: #9ca3af;
+	font-size: 13px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+}
+.files-stats span {
+	white-space: nowrap;
+}
+.breadcrumb {
+	color: #9ca3af;
+	font-size: 14px;
+	margin-bottom: 16px;
+}
+.breadcrumb a {
+	color: #60a5fa;
+	text-decoration: none;
+}
+.breadcrumb a:hover {
+	text-decoration: underline;
+}
+.directories {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+	gap: 12px;
+	margin-bottom: 24px;
+}
+.directory-item {
+	background: #0b1220;
+	border: 1px solid #1f2937;
+	border-radius: 12px;
+	padding: 12px;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	cursor: pointer;
+	transition: all 0.2s;
+	text-decoration: none;
+	color: #e5e7eb;
+}
+.directory-item:hover {
+	border-color: #2563eb;
+	background: #1e3a8a;
+}
+.directory-item i {
+	font-size: 24px;
+	color: #60a5fa;
+}
+.files-grid {
+	display: grid;
+	grid-template-columns: 2fr auto auto auto;
+	gap: 12px;
+	align-items: center;
+}
+.files-grid-header {
+	font-weight: 600;
+	color: #9ca3af;
+	font-size: 12px;
+	text-transform: uppercase;
+	padding-bottom: 8px;
+	border-bottom: 1px solid #1f2937;
+}
+.file-item {
+	display: contents;
+}
+.file-item > * {
+	padding: 12px;
+	background: #0b1220;
+	border: 1px solid #1f2937;
+	border-radius: 8px;
+}
+.file-name {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.file-name a {
+	color: #60a5fa;
+	text-decoration: none;
+}
+.file-name a:hover {
+	text-decoration: underline;
+}
+.file-preview {
+	width: 40px;
+	height: 40px;
+	object-fit: cover;
+	border-radius: 4px;
+}
+.file-actions {
+	display: flex;
+	gap: 8px;
+}
+.file-actions button {
+	background: #dc2626;
+	color: white;
+	border: none;
+	border-radius: 6px;
+	padding: 6px 12px;
+	cursor: pointer;
+	font-size: 12px;
+	transition: background 0.2s;
+}
+.file-actions button:hover {
+	background: #b91c1c;
+}
+.empty {
+	text-align: center;
+	color: #9ca3af;
+	padding: 40px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="files-container">
+	<div class="files-header">
+		<h2>Управління файлами</h2>
+		<div class="files-stats">
+			<span>Файли: {{storage.format_uploads()}}</span>
+			<span>Диск: {{storage.format_used()}} / {{storage.format_total()}}</span>
+			<span>Вільно: {{storage.format_free()}}</span>
+		</div>
+	</div>
+
+	<div class="breadcrumb">
+		<a href="/shop/{{shop.id}}/files">Файли</a>
+		{% if !current_dir.is_empty() %}
+		> {{current_dir}}
+		{% endif %}
+	</div>
+
+	{% if !directories.is_empty() %}
+	<div class="directories">
+		{% for dir in directories %}
+		<a href="/shop/{{shop.id}}/files?dir={% if !current_dir.is_empty() %}{{current_dir}}/{% endif %}{{dir}}" class="directory-item">
+			<i class="ri-folder-line"></i>
+			<span>{{dir}}</span>
+		</a>
+		{% endfor %}
+	</div>
+	{% endif %}
+
+	{% if files.is_empty() && directories.is_empty() %}
+	<div class="empty">
+		<p>Немає файлів у цій директорії</p>
+	</div>
+	{% else %}
+	<div class="files-grid">
+		<div class="files-grid-header">Файл</div>
+		<div class="files-grid-header">Розмір</div>
+		<div class="files-grid-header">Дата зміни</div>
+		<div class="files-grid-header">Дії</div>
+
+		{% for file in files %}
+		<div class="file-item">
+			<div class="file-name">
+				{% if file.name.ends_with(".jpg") || file.name.ends_with(".jpeg") || file.name.ends_with(".png") || file.name.ends_with(".gif") || file.name.ends_with(".webp") %}
+				<img src="/static/uploads/products/{% if !current_dir.is_empty() %}{{current_dir}}/{% endif %}{{file.name}}" alt="{{file.name}}" class="file-preview" onerror="this.style.display='none'">
+				{% endif %}
+				<a href="/static/uploads/products/{% if !current_dir.is_empty() %}{{current_dir}}/{% endif %}{{file.name}}" target="_blank">{{file.name}}</a>
+			</div>
+			<div>{{file.format_size()}}</div>
+			<div>{{file.format_date()}}</div>
+			<div class="file-actions">
+				<form method="post" action="/shop/{{shop.id}}/files/delete" style="display:inline;">
+					<input type="hidden" name="path" value="{% if !current_dir.is_empty() %}{{current_dir}}/{% endif %}{{file.name}}">
+					<button type="submit" onclick="return confirm('Ви впевнені, що хочете видалити цей файл?')">Видалити</button>
+				</form>
+			</div>
+		</div>
+		{% endfor %}
+	</div>
+	{% endif %}
+</div>
+{% endblock %}

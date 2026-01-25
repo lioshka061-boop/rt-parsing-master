@@ -1,0 +1,124 @@
+{% extends "shop/base.html" %}
+{% block head %}
+{% let page = "seo_pages" %}
+<style>
+.toolbar {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	margin-bottom: 12px;
+	flex-wrap: wrap;
+}
+.toolbar h2 { margin: 0; }
+.btn {
+	border: 1px solid #1f2937;
+	background: #111827;
+	color: #e5e7eb;
+	padding: 10px 14px;
+	border-radius: 12px;
+	cursor: pointer;
+	text-decoration: none;
+	font-weight: 700;
+}
+.btn.primary { background: #2563eb; border-color: #2563eb; }
+.list {
+	background: #0b1220;
+	border: 1px solid #1f2937;
+	border-radius: 16px;
+	overflow: hidden;
+}
+.row {
+	display: grid;
+	grid-template-columns: 1.4fr 150px 1.4fr 160px 120px 90px 160px 80px;
+	gap: 12px;
+	align-items: center;
+	padding: 12px 14px;
+	border-bottom: 1px solid rgba(31,41,55,0.8);
+}
+.row.head {
+	position: sticky;
+	top: 0;
+	background: rgba(17, 24, 39, 0.96);
+	backdrop-filter: blur(10px);
+	z-index: 1;
+	font-size: 12px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: #9ca3af;
+}
+.row:last-child { border-bottom: none; }
+.title a { color: #60a5fa; font-weight: 700; text-decoration: none; }
+.path { color: #9ca3af; font-size: 12px; }
+.pill {
+	display: inline-block;
+	border-radius: 999px;
+	padding: 2px 10px;
+	font-size: 12px;
+	background: #111827;
+	border: 1px solid #1f2937;
+	color: #e5e7eb;
+	margin-right: 6px;
+}
+.pill.green { background:#0f766e; border-color:#0f766e; color:#d1fae5; }
+.pill.yellow { background:#92400e; border-color:#f59e0b; color:#fef3c7; }
+.pill.blue { background:#1d4ed8; border-color:#2563eb; color:#dbeafe; }
+.actions { display: flex; justify-content: flex-end; }
+.actions a { padding: 8px 10px; border-radius: 10px; border:1px solid #1f2937; background:#111827; color:#e5e7eb; text-decoration:none; }
+
+@media (max-width: 980px) {
+	.row { grid-template-columns: 1.2fr 120px 1fr 120px; }
+	.row > div:nth-child(n+5) { display: none; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<header class="toolbar">
+	<h2>SEO-сторінки</h2>
+	<a class="btn primary" href="/shop/{{shop.id}}/seo_pages/new">+ Нова SEO-сторінка</a>
+</header>
+
+{% if pages.is_empty() %}
+	<p>SEO-сторінок поки немає. Створіть першу сторінку через кнопку вище.</p>
+{% else %}
+<div class="list">
+	<div class="row head">
+		<div>Назва</div>
+		<div>Тип</div>
+		<div>Шлях</div>
+		<div>Статус</div>
+		<div>Індекс</div>
+		<div>Товари</div>
+		<div>Оновлено</div>
+		<div></div>
+	</div>
+	{% for p in pages %}
+	<div class="row">
+		<div class="title">
+			<a href="/shop/{{shop.id}}/seo_pages/{{p.id}}">{{ p.title }}</a>
+		</div>
+		<div>{{ p.page_type }}</div>
+		<div class="path">{{ p.path }}</div>
+		<div>
+			<span class="pill">{{ p.status }}</span>
+			{% if p.seo_text_auto %}
+				<span class="pill blue">auto</span>
+			{% endif %}
+		</div>
+		<div>
+			{% if p.indexable %}
+				<span class="pill green">index</span>
+			{% else %}
+				<span class="pill yellow">noindex</span>
+			{% endif %}
+		</div>
+		<div>{{ p.product_count }}</div>
+		<div>{{ p.updated_at }}</div>
+		<div class="actions">
+			<a href="/shop/{{shop.id}}/seo_pages/{{p.id}}">Редагувати</a>
+		</div>
+	</div>
+	{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

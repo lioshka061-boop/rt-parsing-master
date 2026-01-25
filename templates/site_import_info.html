@@ -1,0 +1,115 @@
+{% extends "shop/base.html" %}
+{% block head %}
+{% let page = "site_publish" %}
+<link rel="stylesheet" href="/static/export_info.css" />
+<link rel="stylesheet" href="/static/style.css" />
+{% endblock %}
+{% block content %}
+<header>
+	<div>
+		<h2>Імпорт для сайту</h2>
+		<p class="hint">Налаштуйте джерело, поля оновлення та трансформації.</p>
+	</div>
+</header>
+
+<form id="update_entry" action="/shop/{{shop.id}}/site_publish/import/{{hash}}" method="POST">
+	<div class="import group">
+		<h3>Основне</h3>
+		<label>
+			Назва
+			<input type="text" name="name" value="{% if let Some(n) = entry.name.as_ref() %}{{n}}{% endif %}" />
+		</label>
+		<label>
+			Частота оновлення (год.)
+			<input type="number" name="update_rate" value="{{ entry.update_rate.as_secs() / 60 / 60 }}" />
+		</label>
+	</div>
+
+	<div class="import group">
+		<h3>Джерело</h3>
+		<label>
+			Тип джерела
+			<select name="source_kind">
+				<option value="parsing" {% if source_kind == "parsing" %}selected{% endif %}>Парсинг</option>
+				<option value="xml" {% if source_kind == "xml" %}selected{% endif %}>XML</option>
+				<option value="restal" {% if source_kind == "restal" %}selected{% endif %}>RESTAL API</option>
+			</select>
+		</label>
+		<label>
+			Постачальник (для парсингу)
+			<select name="parsing_supplier">
+				<option value="">Оберіть постачальника</option>
+				{% for s in supplier_options %}
+					<option value="{{ s.value }}" {% if parsing_supplier == s.value %}selected{% endif %}>{{ s.label }}</option>
+				{% endfor %}
+			</select>
+		</label>
+		<label>
+			XML посилання
+			<input type="text" name="xml_link" value="{{ xml_link }}" placeholder="https://.../feed.xml" />
+		</label>
+		<label>
+			Назва постачальника (опційно)
+			<input type="text" name="xml_vendor_name" value="{{ xml_vendor_name }}" placeholder="Maxton" />
+		</label>
+	</div>
+
+	<div class="import group">
+		<h3>Що оновлювати</h3>
+		<div class="group">
+			<input id="update_title_ru" type="checkbox" name="update_title_ru" {% if entry.options.update_fields.title_ru %}checked{% endif %}/>
+			<label for="update_title_ru">Назва (рос.)</label>
+			<input id="update_title_ua" type="checkbox" name="update_title_ua" {% if entry.options.update_fields.title_ua %}checked{% endif %}/>
+			<label for="update_title_ua">Назва (укр.)</label>
+			<input id="update_description_ru" type="checkbox" name="update_description_ru" {% if entry.options.update_fields.description_ru %}checked{% endif %}/>
+			<label for="update_description_ru">Опис (рос.)</label>
+			<input id="update_description_ua" type="checkbox" name="update_description_ua" {% if entry.options.update_fields.description_ua %}checked{% endif %}/>
+			<label for="update_description_ua">Опис (укр.)</label>
+			<input id="update_sku" type="checkbox" name="update_sku" {% if entry.options.update_fields.sku %}checked{% endif %}/>
+			<label for="update_sku">Артикул</label>
+			<input id="update_price" type="checkbox" name="update_price" {% if entry.options.update_fields.price %}checked{% endif %}/>
+			<label for="update_price">Ціна</label>
+			<input id="update_images" type="checkbox" name="update_images" {% if entry.options.update_fields.images %}checked{% endif %}/>
+			<label for="update_images">Фото</label>
+			<input id="update_availability" type="checkbox" name="update_availability" {% if entry.options.update_fields.availability %}checked{% endif %}/>
+			<label for="update_availability">Наявність</label>
+			<input id="update_quantity" type="checkbox" name="update_quantity" {% if entry.options.update_fields.quantity %}checked{% endif %}/>
+			<label for="update_quantity">Кількість</label>
+			<input id="update_attributes" type="checkbox" name="update_attributes" {% if entry.options.update_fields.attributes %}checked{% endif %}/>
+			<label for="update_attributes">Характеристики</label>
+			<input id="update_discounts" type="checkbox" name="update_discounts" {% if entry.options.update_fields.discounts %}checked{% endif %}/>
+			<label for="update_discounts">Знижки</label>
+		</div>
+		<label>
+			Як поводитись з товарами, яких немає у файлі
+			<select name="missing_policy">
+				<option value="keep" {% if missing_policy == "keep" %}selected{% endif %}>Залишити без змін</option>
+				<option value="not_available" {% if missing_policy == "not_available" %}selected{% endif %}>Немає в наявності</option>
+				<option value="hidden" {% if missing_policy == "hidden" %}selected{% endif %}>Приховані</option>
+				<option value="deleted" {% if missing_policy == "deleted" %}selected{% endif %}>Видалені</option>
+			</select>
+		</label>
+		<div class="group">
+			<input id="images_replace" type="radio" name="image_strategy" value="replace" {% if !entry.options.append_images %}checked{% endif %}/>
+			<label for="images_replace">Перезаписувати фото (видаляти старі)</label>
+			<input id="images_append" type="radio" name="image_strategy" value="append" {% if entry.options.append_images %}checked{% endif %}/>
+			<label for="images_append">Дописувати фото (не видаляти старі)</label>
+			<input id="round_to_9" type="checkbox" name="round_to_9" {% if entry.options.round_to_9 %}checked{% endif %}/>
+			<label for="round_to_9">Округлювати ціну до 9</label>
+		</div>
+	</div>
+
+{% let opts = entry.options.transform.clone() %}
+{% let link_hash = hash.clone() %}
+	<div class="import group">
+		<h3>Перетворення</h3>
+		{% include "all_features.html" %}
+	</div>
+</form>
+
+<div class="buttons">
+	<button form="update_entry" class="save">Зберегти</button>
+	<form id="remove_entry" action="/shop/{{shop.id}}/site_publish/import/{{hash}}/remove" method="POST"></form>
+	<button form="remove_entry" class="delete">Видалити</button>
+</div>
+{% endblock %}

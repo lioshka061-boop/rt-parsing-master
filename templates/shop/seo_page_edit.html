@@ -1,0 +1,241 @@
+{% extends "shop/base.html" %}
+{% block head %}
+{% let page = "seo_pages" %}
+<style>
+.wrap {
+	display: grid;
+	grid-template-columns: 1fr 320px;
+	gap: 18px;
+	align-items: start;
+}
+.card {
+	background: #0b1220;
+	border: 1px solid #1f2937;
+	border-radius: 16px;
+	padding: 14px;
+}
+.topbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 14px;
+}
+.topbar a {
+	text-decoration: none;
+	color: #9ca3af;
+	border: 1px solid #1f2937;
+	background: #111827;
+	padding: 8px 12px;
+	border-radius: 12px;
+	font-weight: 700;
+}
+.save {
+	border: 1px solid #2563eb;
+	background: #2563eb;
+	color: #fff;
+	padding: 10px 14px;
+	border-radius: 12px;
+	cursor: pointer;
+	font-weight: 800;
+}
+.remove {
+	border: 1px solid #7f1d1d;
+	background: transparent;
+	color: #fca5a5;
+	padding: 8px 12px;
+	border-radius: 12px;
+	cursor: pointer;
+	font-weight: 700;
+}
+.grid { display: grid; gap: 12px; }
+label {
+	display: block;
+	font-size: 12px;
+	text-transform: uppercase;
+	color: #9ca3af;
+	margin-bottom: 6px;
+	letter-spacing: 0.08em;
+}
+input[type="text"], textarea, select {
+	width: 100%;
+	border-radius: 12px;
+	border: 1px solid #1f2937;
+	background: #111827;
+	color: #e5e7eb;
+	padding: 10px 12px;
+}
+textarea { min-height: 140px; resize: vertical; }
+.hint { color: #9ca3af; font-size: 12px; margin-top: 6px; }
+.two { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pill {
+	display: inline-block;
+	border-radius: 999px;
+	padding: 2px 10px;
+	font-size: 12px;
+	background: #111827;
+	border: 1px solid #1f2937;
+	color: #e5e7eb;
+}
+.pill.green { background:#0f766e; border-color:#0f766e; color:#d1fae5; }
+.pill.yellow { background:#92400e; border-color:#f59e0b; color:#fef3c7; }
+.pill.blue { background:#1d4ed8; border-color:#2563eb; color:#dbeafe; }
+.meta { display: grid; gap: 8px; }
+.meta-row { display: flex; justify-content: space-between; gap: 10px; color: #9ca3af; font-size: 13px; }
+.meta-row strong { color: #e5e7eb; font-weight: 800; }
+.checkbox {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 14px;
+	color: #e5e7eb;
+}
+
+@media (max-width: 980px) {
+	.wrap { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="topbar">
+	<a href="/shop/{{shop.id}}/seo_pages">← Повернутись</a>
+	<div style="display:flex; gap:10px; align-items:center;">
+		{% if !is_new %}
+			<span class="pill">{{ seo_page.id }}</span>
+		{% endif %}
+		<button form="seo-page-edit" type="submit" class="save">Зберегти</button>
+		{% if !is_new %}
+		<form method="post" action="/shop/{{shop.id}}/seo_pages/{{seo_page.id}}/remove">
+			<button type="submit" class="remove">Видалити</button>
+		</form>
+		{% endif %}
+	</div>
+</div>
+
+<div class="wrap">
+	<form id="seo-page-edit" class="card grid" method="post" action="{% if is_new %}/shop/{{shop.id}}/seo_pages/new{% else %}/shop/{{shop.id}}/seo_pages/{{seo_page.id}}{% endif %}">
+		<div class="two">
+			<div>
+				<label>Тип сторінки</label>
+				<select name="page_type">
+					<option value="tuning_model" {% if page_type == "tuning_model" %}selected{% endif %}>Тюнінг моделі</option>
+					<option value="accessories_car" {% if page_type == "accessories_car" %}selected{% endif %}>Аксесуари для авто</option>
+					<option value="how_to_choose" {% if page_type == "how_to_choose" %}selected{% endif %}>Гайд “Як обрати…”</option>
+				</select>
+			</div>
+			<div>
+				<label>Статус</label>
+				<select name="status">
+					<option value="draft" {% if status == "draft" %}selected{% endif %}>Draft</option>
+					<option value="published" {% if status == "published" %}selected{% endif %}>Published</option>
+				</select>
+			</div>
+		</div>
+
+		<div>
+			<label>Slug</label>
+			<input type="text" name="slug" value="{{ seo_page.slug }}">
+			<div class="hint">Якщо порожній — буде автогенерація. Формат: латиниця та дефіси.</div>
+		</div>
+
+		<div>
+			<label>Заголовок</label>
+			<input type="text" name="title" value="{{ seo_page.title }}">
+		</div>
+
+		<div>
+			<label>H1</label>
+			<input type="text" name="h1" value="{% if let Some(v) = seo_page.h1.as_ref() %}{{v}}{% endif %}">
+		</div>
+
+		<div class="two">
+			<div>
+				<label>Meta title</label>
+				<input type="text" name="meta_title" value="{% if let Some(v) = seo_page.meta_title.as_ref() %}{{v}}{% endif %}">
+			</div>
+			<div>
+				<label>Meta description</label>
+				<input type="text" name="meta_description" value="{% if let Some(v) = seo_page.meta_description.as_ref() %}{{v}}{% endif %}">
+			</div>
+		</div>
+
+		<div>
+			<label>Robots</label>
+			<input type="text" name="robots" value="{% if let Some(v) = seo_page.robots.as_ref() %}{{v}}{% endif %}" placeholder="index,follow">
+		</div>
+
+		<div>
+			<label>SEO текст (HTML)</label>
+			<textarea name="seo_text">{% if let Some(v) = seo_page.seo_text.as_ref() %}{{v}}{% endif %}</textarea>
+			<div class="hint">Після ручного редагування вимкніть автогенерацію.</div>
+			<label class="checkbox" style="margin-top: 8px;">
+				<input type="checkbox" name="seo_text_auto" {% if seo_page.seo_text_auto %}checked{% endif %}>
+				<span>Автогенерація SEO тексту</span>
+			</label>
+		</div>
+
+		<div>
+			<label>FAQ (HTML, опційно)</label>
+			<textarea name="faq" rows="6" placeholder="<div class='qa-item'><div class='qa-q'>Питання</div><div class='qa-a'>Відповідь</div></div>">{% if let Some(v) = seo_page.faq.as_ref() %}{{v}}{% endif %}</textarea>
+		</div>
+
+		<div class="card" style="background:#0d1625; border:1px solid #1f2937;">
+			<h4 style="margin-top:0;">Джерело та параметри</h4>
+			<div class="two">
+				<div>
+					<label>Бренд</label>
+					<input type="text" name="brand" value="{% if let Some(v) = payload.brand.as_ref() %}{{v}}{% endif %}">
+				</div>
+				<div>
+					<label>Модель</label>
+					<input type="text" name="model" value="{% if let Some(v) = payload.model.as_ref() %}{{v}}{% endif %}">
+				</div>
+			</div>
+			<div class="two">
+				<div>
+					<label>Авто (повна назва)</label>
+					<input type="text" name="car" value="{% if let Some(v) = payload.car.as_ref() %}{{v}}{% endif %}">
+				</div>
+				<div>
+					<label>Категорія</label>
+					<input type="text" name="category" value="{% if let Some(v) = payload.category.as_ref() %}{{v}}{% endif %}">
+				</div>
+			</div>
+			<div>
+				<label>Тема (для гайдів)</label>
+				<input type="text" name="topic" value="{% if let Some(v) = payload.topic.as_ref() %}{{v}}{% endif %}">
+			</div>
+			<div class="hint">Для тюнінгу/аксесуарів бажано заповнити бренд і модель, щоб підтягувались товари.</div>
+		</div>
+
+		<div>
+			<label>Перелінковка (шляхи через кому або новий рядок)</label>
+			<textarea name="related_links" rows="5" placeholder="/tuning/bmw-x5">{% if !related_links.is_empty() %}{{related_links}}{% endif %}</textarea>
+		</div>
+	</form>
+
+	<div class="card">
+		<h4 style="margin-top:0;">Поточний стан</h4>
+		<div class="meta">
+			<div class="meta-row">
+				<span>Шлях</span>
+				<strong>{% if path.is_empty() %}—{% else %}{{ path }}{% endif %}</strong>
+			</div>
+			<div class="meta-row">
+				<span>Товари</span>
+				<strong>{{ product_count }}</strong>
+			</div>
+			<div class="meta-row">
+				<span>Індексація</span>
+				{% if indexable %}
+					<strong class="pill green">index</strong>
+				{% else %}
+					<strong class="pill yellow">noindex</strong>
+				{% endif %}
+			</div>
+		</div>
+		<p class="hint">Canonical та robots задаються backend-логікою та залежать від індексації.</p>
+	</div>
+</div>
+{% endblock %}

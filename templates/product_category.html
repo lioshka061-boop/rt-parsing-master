@@ -1,0 +1,92 @@
+{% extends "shop/base.html" %}
+{% block head %}
+{% let page = "product_categories" %}
+<link rel="stylesheet" href="/static/categories.css" />
+{% endblock %}
+{% block content %}
+<header>
+	<h2>Подкатегории: {{category.name}}</h2>
+	<a class="button" href="/shop/{{shop.id}}/product_categories">К списку категорий товаров</a>
+</header>
+
+<form class="add-category category" action="/shop/{{shop.id}}/product_categories/add" method="POST">
+	<span>
+		<input type="text" name="name" placeholder="Название подкатегории" />
+	</span>
+	<label>
+		Паттерн:
+		<textarea name="regex" autocomplete="off" autocapitalize="off"></textarea>
+	</label>
+	<label>
+		Фото (URL):
+		<input type="text" name="image_url" placeholder="https://..." />
+	</label>
+	<input type="hidden" name="parent_id" value="{{category.id}}">
+	<span>
+		<button>Добавить</button>
+	</span>
+</form>
+
+{% for c in subcategories %}
+<form id="remove_category_{{c.id}}" class="hidden" action="/shop/{{shop.id}}/product_category/delete/{{c.id}}" method="POST"></form>
+{% endfor %}
+
+<div class="categories">
+	{% for c in subcategories %}
+	<form class="category" action="/shop/{{shop.id}}/product_categories/update/{{c.id}}" method="POST">
+		<span>
+			<input type="text" name="name" value="{{c.name}}" placeholder="Название категории" />
+			<a href="/shop/{{shop.id}}/product_categories/{{c.id}}">Подкатегории</a>
+		</span>
+	<label>
+		Паттерн:
+		<textarea name="regex" autocomplete="off" autocapitalize="off">{% if let Some(regex) = c.regex %}{{regex}}{% endif %}</textarea>
+	</label>
+	<label>
+		Фото (URL):
+		<input type="text" name="image_url" value="{% if let Some(url) = c.image_url %}{{url}}{% endif %}" placeholder="https://..." />
+	</label>
+	<label>
+		Родительская категория
+		<select name="parent_id">
+			<option value="">Нет</option>
+			{% for ca in categories %}
+				{% if ca.id != c.id %}
+				<option value="{{ca.id}}" {% if let Some(pid) = c.parent_id %}{% if pid.to_string() == ca.id.to_string() %}selected{% endif %}{% endif %}>{{ca.name}}</option>
+				{% endif %}
+			{% endfor %}
+		</select>
+	</label>
+	<div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px;">
+		<label>
+			Статус
+			<select name="status">
+				<option value="draft" {% if c.status == crate::product_category::CategoryStatus::Draft %}selected{% endif %}>draft</option>
+				<option value="published_noindex" {% if c.status == crate::product_category::CategoryStatus::PublishedNoIndex %}selected{% endif %}>published_noindex</option>
+				<option value="seo_ready" {% if c.status == crate::product_category::CategoryStatus::SeoReady %}selected{% endif %}>seo_ready</option>
+			</select>
+		</label>
+		<label>
+			Видимость
+			<select name="visibility_on_site">
+				<option value="hidden" {% if c.visibility_on_site == crate::product_category::Visibility::Hidden %}selected{% endif %}>hidden</option>
+				<option value="visible" {% if c.visibility_on_site == crate::product_category::Visibility::Visible %}selected{% endif %}>visible</option>
+			</select>
+		</label>
+		<label>
+			Індексація
+			<select name="indexing_status">
+				<option value="noindex" {% if c.indexing_status == crate::product_category::IndexingStatus::NoIndex %}selected{% endif %}>noindex</option>
+				<option value="index" {% if c.indexing_status == crate::product_category::IndexingStatus::Index %}selected{% endif %}>index</option>
+			</select>
+		</label>
+	</div>
+	<span>
+		<button>Сохранить</button>
+		<button form="remove_category_{{c.id}}" class="red">Удалить</button>
+	</span>
+	</form>
+	{% endfor %}
+</div>
+<script src="/static/categories.js"></script>
+{% endblock %}

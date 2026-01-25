@@ -1,0 +1,347 @@
+{% extends "base.html" %}
+{% block head %}
+<link rel="stylesheet" href="/static/landing/index.css" />
+<script defer src="/static/landing/app.js"></script>
+{% endblock %}
+{% block header %}
+{% let user = crate::control::into_user_option(user) %}
+<header class="hero-header">
+	<div class="logo-row">
+		<div class="logo-mark">
+			<div class="mark"></div>
+		<div class="logo-text">
+				<span class="logo-top">O&P Tuning</span>
+				<span class="logo-sub">tuning & parts</span>
+		</div>
+		</div>
+		<button class="menu-toggle" aria-label="Меню"><i class="ri-menu-line"></i></button>
+		<nav class="main-nav">
+			<a href="#offer">Каталог</a>
+			<a href="#new">Новинки</a>
+			<a href="#story">Як ми працюємо</a>
+			<a href="#gallery">Реалізації</a>
+			<a href="#contacts">Контакти</a>
+		</nav>
+		<div class="auth">
+			{% if let Some(creds) = user %}
+			<a class="link" href="/me"><i class="ri-user-line"></i>{{creds.login}}</a>
+			{% else %}
+			<a class="link" href="/login">Увійти</a>
+			<a class="cta" href="/register">Створити акаунт</a>
+			{% endif %}
+		</div>
+	</div>
+	<div class="search-bar">
+		<div class="search-input">
+			<i class="ri-search-line"></i>
+			<input type="text" placeholder="Пошук: BMW X6 F16, Maxton, спойлер…">
+		</div>
+		<div class="filters">
+			<select>
+				<option>Марка</option>
+				<option>BMW</option>
+				<option>Audi</option>
+				<option>VW</option>
+				<option>Ford</option>
+			</select>
+			<select>
+				<option>Модель</option>
+				<option>X6 F16</option>
+				<option>RS6</option>
+				<option>Golf</option>
+			</select>
+			<select>
+				<option>Категорія</option>
+				<option>Спойлери</option>
+				<option>Накладки</option>
+				<option>Аксесуари</option>
+			</select>
+			<button class="ghost"><i class="ri-equalizer-line"></i>Фільтри</button>
+			<button class="primary"><i class="ri-search-line"></i>Шукати</button>
+		</div>
+	</div>
+</header>
+{% endblock %}
+{% block content %}
+<main class="page">
+	<section class="hero">
+		<div class="hero-copy">
+			<p class="eyebrow">Стайлінг • Аеродинаміка • Захист</p>
+			<h1>Сучасний вигляд авто без компромісів</h1>
+			<p class="lede">Каталог обвісів, спліттерів, накладок та аксесуарів. Шукаємо, парсимо, налаштовуємо — ви просто вибираєте.</p>
+			<div class="hero-actions">
+				<a class="primary" href="#offer">Дивитись каталог</a>
+				<a class="ghost" href="#new">Нові надходження</a>
+			</div>
+			<div class="pill-row">
+				<span class="pill">Maxton Design</span>
+				<span class="pill">DT / SKM / JGD</span>
+				<span class="pill">Категорії та описи готові</span>
+			</div>
+		</div>
+		<div class="hero-media">
+			<div class="glass">
+				<div class="badge">New</div>
+				<h3>Body kit для BMW</h3>
+				<p>Лінійка спліттерів, накладок та спойлерів з доставкою за 14–60 днів.</p>
+				<div class="mini-cards">
+					<div class="mini">
+						<span class="label">Матеріал</span>
+						<strong>ABS / Carbon</strong>
+					</div>
+					<div class="mini">
+						<span class="label">Сумісність</span>
+						<strong>50+ моделей</strong>
+					</div>
+					<div class="mini">
+						<span class="label">Монтаж</span>
+						<strong>Кріплення в комплекті</strong>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<section id="offer" class="categories">
+		<div class="section-head">
+			<div>
+				<p class="eyebrow">Категорії</p>
+				<h2>Швидкий перехід до розділів</h2>
+			</div>
+			<a class="ghost" href="#new">Дивитись новинки</a>
+		</div>
+		<div class="cat-grid">
+			{% if categories.is_empty() %}
+			<div class="cat-card accent">
+				<h3>Категорії ще не завантажені</h3>
+				<p>Додайте їх в адмінці — тут з'явиться список.</p>
+			</div>
+			{% else %}
+			{% for c in categories.iter().take(6) %}
+			<div class="cat-card {% if loop.index0 == 0 %}accent{% endif %}">
+				<h3>{{ c.name }}</h3>
+				<p>Колекція під ваш проєкт.</p>
+				<span class="dot">ID {{ c.id }}</span>
+			</div>
+			{% endfor %}
+			{% endif %}
+		</div>
+	</section>
+
+	<section id="new" class="products">
+		<div class="section-head">
+			<div>
+				<p class="eyebrow">Новинки</p>
+				<h2>Щойно додані позиції</h2>
+			</div>
+			<div class="tabs">
+				<button class="ghost active">Stylings kits</button>
+				<button class="ghost">Спліттери</button>
+				<button class="ghost">Спойлери</button>
+			</div>
+		</div>
+		<div class="product-grid">
+			{% if products.is_empty() %}
+				<div class="product-card">
+					<div class="thumb">
+						<span class="tag">нема фото</span>
+					</div>
+					<div class="info">
+						<h4>Товари поки не підтягнуті</h4>
+						<p class="meta">Додайте постачальників і запустіть парсинг.</p>
+					</div>
+				</div>
+			{% else %}
+			{% for p in products %}
+			<a class="product-card" href="/product/{{ p.slug() }}">
+				<div class="thumb" {% if let Some(img) = p.images.first() %}style="background-image: url('{{img}}'); background-size: cover; background-position: center;"{% endif %}>
+					<span class="tag">нове</span>
+				</div>
+				<div class="info">
+					<h4>{{ p.title }}</h4>
+					<p class="meta">{{ p.format_model().unwrap_or(p.model.0.clone()) }} • {{ p.brand }}</p>
+					<div class="price-row">
+						<span class="price">
+							{% if let Some(price) = p.price %}
+								{{ price }} грн
+							{% else %}
+								Ціна уточнюється
+							{% endif %}
+						</span>
+						<button class="ghost" title="Відкрити оригінал" onclick="window.open('{{p.url.0}}','_blank')">
+							<i class="ri-link"></i>
+						</button>
+					</div>
+				</div>
+			</a>
+			{% endfor %}
+			{% endif %}
+		</div>
+	</section>
+
+	<section id="story" class="story">
+		<div class="text">
+			<p class="eyebrow">Як ми працюємо</p>
+			<h2>Від сканування до монтажу</h2>
+			<p>Будуємо каталог на основі точних даних: парсимо постачальників, нормалізуємо назви, додаємо фото та категорії, прописуємо доставку і наявність.</p>
+			<ul>
+				<li>3D-сканування кузова → точні лекала</li>
+				<li>Фільтрація товарів: у наявності / під замовлення</li>
+				<li>Опис, переклади, знижки та множники цін</li>
+			</ul>
+			<div class="hero-actions">
+				<a class="primary" href="/login">Увійти в адмінку</a>
+				<a class="ghost" href="/register">Спробувати безкоштовно</a>
+			</div>
+		</div>
+		<div class="media">
+			<div class="panel large"></div>
+			<div class="panel small"></div>
+		</div>
+	</section>
+
+	<section id="gallery" class="gallery">
+		<div class="section-head">
+			<div>
+				<p class="eyebrow">Реалізації</p>
+				<h2>Від шоу-руму до треку</h2>
+			</div>
+			<div class="dots">
+				<span class="dot active"></span>
+				<span class="dot"></span>
+				<span class="dot"></span>
+			</div>
+		</div>
+		<div class="gallery-grid">
+			<div class="shot wide"></div>
+			<div class="shot tall"></div>
+			<div class="shot"></div>
+		</div>
+	</section>
+
+	<section id="popular" class="popular">
+		<div class="section-head">
+			<div>
+				<p class="eyebrow">Популярне</p>
+				<h2>Топ-авто та топ-товари</h2>
+			</div>
+			<a class="ghost" href="/search">Перейти до пошуку</a>
+		</div>
+		<div class="pop-grid">
+			<div class="pop-card">
+				<h4>Популярні авто</h4>
+				<ul>
+					<li><a href="/search?q=BMW">BMW X5 / X6</a></li>
+					<li><a href="/search?q=Mercedes">Mercedes W223 / W213</a></li>
+					<li><a href="/search?q=VAG">VW / Audi RS / Skoda</a></li>
+					<li><a href="/search?q=Tesla">Tesla Model 3 / Y</a></li>
+				</ul>
+			</div>
+			<div class="pop-card">
+				<h4>Популярні товари</h4>
+				<ul>
+					<li><a href="/search?q=splitter">Передні спліттери</a></li>
+					<li><a href="/search?q=diffuser">Дифузори та накладки</a></li>
+					<li><a href="/search?q=spoiler">Крила та спойлери</a></li>
+					<li><a href="/search?q=side">Пороги, бокові накладки</a></li>
+				</ul>
+			</div>
+			<div class="pop-card">
+				<h4>Сторінки</h4>
+				<ul>
+					<li><a href="#contacts">Контакти</a></li>
+					<li><a href="/search">Каталог</a></li>
+					<li><a href="#reviews">Відгуки</a></li>
+					<li><a href="#articles">Статті</a></li>
+				</ul>
+			</div>
+		</div>
+	</section>
+
+	<section id="reviews" class="reviews">
+		<div class="section-head">
+			<div>
+				<p class="eyebrow">Відгуки</p>
+				<h2>Що кажуть клієнти</h2>
+			</div>
+			<a class="ghost" href="#contacts">Зв'язатись</a>
+		</div>
+		<div class="review-grid">
+			<div class="review">
+				<div class="stars">★★★★★</div>
+				<p>“Замовив спліттер на BMW — прийшло за 14 днів, якість топ, монтаж без підгонки.”</p>
+				<span class="author">— Андрій, Київ</span>
+			</div>
+			<div class="review">
+				<div class="stars">★★★★☆</div>
+				<p>“Maxton на Audi A6 C8: чіткі кріплення, добрі ціни, менеджер підказав по доставці.”</p>
+				<span class="author">— Олексій, Львів</span>
+			</div>
+			<div class="review">
+				<div class="stars">★★★★★</div>
+				<p>“Під замовлення з Польщі приїхало швидше, ніж очікував. Буду брати дифузор.”</p>
+				<span class="author">— Дмитро, Дніпро</span>
+			</div>
+		</div>
+	</section>
+
+	<section id="articles" class="articles">
+		<div class="section-head">
+			<div>
+				<p class="eyebrow">Блог та SEO</p>
+				<h2>Статті для просування</h2>
+			</div>
+			<a class="ghost" href="/search">До каталогу</a>
+		</div>
+		<div class="article-grid">
+			<article>
+				<p class="eyebrow">Гайд</p>
+				<h3><a href="#">Як підібрати спліттер під ваш бампер</a></h3>
+				<p>Матеріали ABS vs Carbon, кроки по заміру, нюанси доставки.</p>
+			</article>
+			<article>
+				<p class="eyebrow">Огляд</p>
+				<h3><a href="#">Maxton Design: що нового у 2025</a></h3>
+				<p>Свіжі лінійки для BMW, VAG, Tesla та преміум-сегмент.</p>
+			</article>
+			<article>
+				<p class="eyebrow">Сервіс</p>
+				<h3><a href="#">Доставка та оплата: як ми працюємо</a></h3>
+				<p>Терміни, способи оплати, гарантія повернення.</p>
+			</article>
+		</div>
+	</section>
+
+	<section id="contacts" class="contacts">
+		<div>
+			<p class="eyebrow">Контакти</p>
+			<h2>Працюємо щодня</h2>
+			<p>Потрібна консультація по сумісності або доставці? Напишіть нам — допоможемо підібрати комплект та швидко згенеруємо експорт.</p>
+			<div class="contact-grid">
+				<div class="contact-card">
+					<i class="ri-whatsapp-line"></i>
+					<div>
+						<span>Пишіть у WhatsApp</span>
+						<strong>+38 (093) 000 00 00</strong>
+					</div>
+				</div>
+				<div class="contact-card">
+					<i class="ri-mail-line"></i>
+					<div>
+						<span>Пошта</span>
+						<strong>sales@rt-auto.ua</strong>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="newsletter">
+			<h3>Підписка на оновлення</h3>
+			<p>Нові надходження, терміни виробництва, гарячі знижки.</p>
+			<form>
+				<input type="email" placeholder="Ваш e-mail">
+				<button class="primary">Підписатись</button>
+			</form>
+		</div>
+	</section>
+</main>
+{% endblock %}

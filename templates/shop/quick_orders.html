@@ -1,0 +1,95 @@
+{% extends "shop/base.html" %}
+{% block head %}
+{% let page = "crm" %}
+<style>
+	.crm-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 12px;
+		flex-wrap: wrap;
+	}
+	.crm-header h2 {
+		margin: 0;
+	}
+	.crm-header a {
+		color: var(--accent);
+		text-decoration: none;
+	}
+	.crm-table {
+		width: 100%;
+		border-collapse: collapse;
+		margin-top: 16px;
+		background: var(--panel);
+		border-radius: 12px;
+		overflow: hidden;
+		border: 1px solid var(--border);
+	}
+	.crm-table th, .crm-table td {
+		padding: 12px 14px;
+		border-bottom: 1px solid var(--border);
+		text-align: left;
+		vertical-align: top;
+	}
+	.crm-table th {
+		background: var(--panel-2);
+		font-weight: 700;
+	}
+	.crm-table td small {
+		color: var(--muted);
+	}
+	.crm-actions form {
+		margin: 0;
+	}
+	.crm-actions button {
+		border: 0;
+		background: var(--button-bg);
+		color: var(--button-text);
+		padding: 8px 12px;
+		border-radius: 10px;
+		cursor: pointer;
+		border: 1px solid var(--button-border);
+	}
+	.crm-empty {
+		margin-top: 18px;
+		color: var(--muted);
+	}
+</style>
+{% endblock %}
+{% block content %}
+<div class="crm-header">
+	<h2>Швидке замовлення</h2>
+	<a href="/shop/{{shop.id}}/crm">← Назад до CRM</a>
+</div>
+{% if items.len() == 0 %}
+	<p class="crm-empty">Заявок поки немає.</p>
+{% else %}
+<table class="crm-table">
+	<thead>
+		<tr>
+			<th>Телефон</th>
+			<th>Товар</th>
+			<th>Дата</th>
+			<th></th>
+		</tr>
+	</thead>
+	<tbody>
+	{% for item in items %}
+		<tr>
+			<td><strong>{{ item.phone }}</strong></td>
+			<td>
+				<div>{{ item.title }}</div>
+				<small>{{ item.article }}</small>
+			</td>
+			<td>{{ item.created_at }}</td>
+			<td class="crm-actions">
+				<form method="post" action="/shop/{{shop.id}}/crm/quick_orders/{{ item.id }}/delete">
+					<button type="submit">Видалити</button>
+				</form>
+			</td>
+		</tr>
+	{% endfor %}
+	</tbody>
+</table>
+{% endif %}
+{% endblock %}

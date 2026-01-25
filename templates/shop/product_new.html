@@ -1,0 +1,246 @@
+{% extends "shop/base.html" %}
+{% block head %}
+{% let page = "products" %}
+<style>
+.product-new {
+	background: #111827;
+	border: 1px solid #1f2937;
+	border-radius: 16px;
+	padding: 16px;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px 18px;
+}
+.product-new label { font-size:12px; text-transform:uppercase; color:#9ca3af; }
+.product-new input, .product-new textarea, .product-new select {
+	width: 100%;
+	border-radius: 12px;
+	border:1px solid #1f2937;
+	background:#0b1220;
+	color:#e5e7eb;
+	padding:10px 12px;
+}
+.product-new textarea { min-height:140px; resize:vertical; }
+.actions { grid-column: 1 / -1; display:flex; justify-content: space-between; align-items:center; }
+.primary { background:#2563eb; color:white; border:none; padding:10px 14px; border-radius:12px; cursor:pointer; }
+.ghost { color:#9ca3af; }
+.image-upload { grid-column: 1 / -1; display:flex; flex-direction:column; gap:8px; }
+.image-upload-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.image-upload-controls button { border:1px solid #1f2937; background:#0b1220; color:#9ca3af; border-radius:10px; padding:6px 10px; cursor:pointer; }
+.image-list { display:grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap:10px; }
+.image-item { position:relative; border:1px dashed #1f2937; border-radius:12px; padding:8px; background:#0b1220; display:flex; flex-direction:column; gap:8px; }
+.image-item img { width:100%; height:92px; object-fit:cover; border-radius:8px; background:#111827; }
+.image-index { position:absolute; top:6px; left:6px; background:#111827; color:#e5e7eb; border:1px solid #1f2937; border-radius:8px; font-size:11px; padding:2px 6px; }
+.image-actions { display:flex; gap:6px; justify-content:space-between; }
+.image-actions button { border:1px solid #1f2937; background:#111827; color:#e5e7eb; border-radius:8px; padding:4px 6px; cursor:pointer; font-size:12px; }
+.image-actions button:disabled { opacity:0.4; cursor:default; }
+.image-item.drag-over { border-color:#2563eb; box-shadow:0 0 0 1px #2563eb inset; }
+.image-item.dragging { opacity:0.6; }
+@media(max-width: 960px){
+	.product-new { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<header class="search-bar">
+	<h2 style="margin:0;">Новий товар (OP Tuning)</h2>
+	<a class="ghost" href="/shop/{{shop.id}}/products" style="text-decoration:none; padding:8px 12px; border:1px solid #1f2937; border-radius:10px;">← Повернутись</a>
+</header>
+
+<form class="product-new" method="post" action="/shop/{{shop.id}}/products/new" enctype="multipart/form-data">
+	<div style="grid-column:1/-1; display:flex; gap:8px; align-items:center;">
+		<span class="pill" style="background:#0b1220; border:1px solid #1f2937; padding:6px 10px; border-radius:10px;">Публікується на сайт і пром</span>
+	</div>
+	<div>
+		<label>Назва (RU) *</label>
+		<input type="text" name="title" required>
+		<div class="ghost" style="font-size:12px;">Використовується для Prom.</div>
+	</div>
+	<div>
+		<label>Назва (UA) *</label>
+		<input type="text" name="title_ua" required>
+		<div class="hint">Використовується на сайті.</div>
+	</div>
+	<div>
+		<label>Артикул (порожньо — генеруємо)</label>
+		<input type="text" name="article" placeholder="N2-43L*">
+	</div>
+	<div>
+		<label>Бренд *</label>
+		<input type="text" name="brand" required>
+	</div>
+	<div>
+		<label>Модель *</label>
+		<input type="text" name="model" required>
+	</div>
+	<div>
+		<label>Категорія товару</label>
+		<select name="site_category_id">
+			<option value="">— Не вибрано —</option>
+			{% for c in category_options %}
+				<option value="{{c.id}}">{{c.label}}</option>
+			{% endfor %}
+		</select>
+		<div class="hint">Список підтягується з вкладки “Категории товаров”.</div>
+	</div>
+	<div>
+		<label>Статус</label>
+		<select name="available">
+			<option value="available">В наявності</option>
+			<option value="on_order">Під замовлення</option>
+			<option value="not_available">Немає</option>
+		</select>
+	</div>
+	<div>
+		<label>Ціна, грн</label>
+		<input type="number" min="0" step="1" name="price">
+	</div>
+	<div>
+		<label>Фото (кома, посилання)</label>
+		<input type="text" name="images" placeholder="https://...">
+	</div>
+	<div class="image-upload">
+		<label>Фото з ПК</label>
+		<div class="image-upload-controls">
+			<input type="file" id="images-files" name="images_files" accept="image/*" multiple>
+			<button type="button" id="images-clear">Очистити</button>
+		</div>
+		<div class="hint">Після вибору фото можна змінювати порядок (drag або кнопками).</div>
+		<div class="image-list" id="images-list" aria-live="polite"></div>
+	</div>
+	<div style="grid-column:1/-1;">
+		<label>Опис (RU, HTML дозволено) *</label>
+		<textarea name="description" required></textarea>
+		<div class="ghost" style="font-size:12px;">Використовується для Prom.</div>
+	</div>
+	<div style="grid-column:1/-1;">
+		<label>Опис (UA, HTML дозволено) *</label>
+		<textarea name="description_ua" required></textarea>
+		<div class="hint">Використовується на сайті.</div>
+	</div>
+	<div style="grid-column:1/-1;">
+		<label>Доп продажі (артикули через кому)</label>
+		<input type="text" name="upsell" placeholder="art1, art2">
+	</div>
+	<div class="actions">
+		<span class="ghost">Після збереження товар з'явиться у списку товарів та на сайті</span>
+		<button class="primary" type="submit">Створити</button>
+	</div>
+</form>
+
+<script>
+(() => {
+	const input = document.getElementById("images-files");
+	const list = document.getElementById("images-list");
+	const clearButton = document.getElementById("images-clear");
+	if (!input || !list || !clearButton) return;
+
+	let files = [];
+
+	const syncInput = () => {
+		if (typeof DataTransfer === "undefined") {
+			return;
+		}
+		const dt = new DataTransfer();
+		files.forEach((file) => dt.items.add(file));
+		input.files = dt.files;
+	};
+
+	const move = (fromIndex, toIndex) => {
+		if (toIndex < 0 || toIndex >= files.length) return;
+		const [item] = files.splice(fromIndex, 1);
+		files.splice(toIndex, 0, item);
+		syncInput();
+		render();
+	};
+
+	const removeAt = (index) => {
+		files.splice(index, 1);
+		syncInput();
+		render();
+	};
+
+	const render = () => {
+		list.innerHTML = "";
+		files.forEach((file, index) => {
+			const item = document.createElement("div");
+			item.className = "image-item";
+			item.draggable = true;
+			item.dataset.index = String(index);
+
+			const badge = document.createElement("span");
+			badge.className = "image-index";
+			badge.textContent = `#${index + 1}`;
+
+			const img = document.createElement("img");
+			const previewUrl = URL.createObjectURL(file);
+			img.src = previewUrl;
+			img.alt = file.name;
+			img.onload = () => URL.revokeObjectURL(previewUrl);
+
+			const actions = document.createElement("div");
+			actions.className = "image-actions";
+
+			const up = document.createElement("button");
+			up.type = "button";
+			up.textContent = "⬆";
+			up.disabled = index === 0;
+			up.addEventListener("click", () => move(index, index - 1));
+
+			const down = document.createElement("button");
+			down.type = "button";
+			down.textContent = "⬇";
+			down.disabled = index === files.length - 1;
+			down.addEventListener("click", () => move(index, index + 1));
+
+			const remove = document.createElement("button");
+			remove.type = "button";
+			remove.textContent = "✕";
+			remove.addEventListener("click", () => removeAt(index));
+
+			actions.append(up, down, remove);
+			item.append(badge, img, actions);
+
+			item.addEventListener("dragstart", (event) => {
+				event.dataTransfer?.setData("text/plain", String(index));
+				item.classList.add("dragging");
+			});
+			item.addEventListener("dragend", () => {
+				item.classList.remove("dragging");
+			});
+			item.addEventListener("dragover", (event) => {
+				event.preventDefault();
+				item.classList.add("drag-over");
+			});
+			item.addEventListener("dragleave", () => {
+				item.classList.remove("drag-over");
+			});
+			item.addEventListener("drop", (event) => {
+				event.preventDefault();
+				item.classList.remove("drag-over");
+				const from = Number(event.dataTransfer?.getData("text/plain"));
+				if (Number.isNaN(from)) return;
+				move(from, index);
+			});
+
+			list.append(item);
+		});
+	};
+
+	input.addEventListener("change", () => {
+		const selected = Array.from(input.files || []);
+		if (selected.length === 0) return;
+		files = files.concat(selected);
+		syncInput();
+		render();
+	});
+
+	clearButton.addEventListener("click", () => {
+		files = [];
+		syncInput();
+		render();
+	});
+})();
+</script>
+{% endblock %}
