@@ -14,6 +14,21 @@ use uuid::Uuid;
 
 static EMPTY_STRING: String = String::new();
 
+pub fn delivery_days_from_params(params: &HashMap<String, String>) -> Option<usize> {
+    let keys = ["delivery_days", "DeliveryDays", "deliveryDays"];
+    for key in keys {
+        if let Some(value) = params.get(key) {
+            let value = value.trim();
+            if let Ok(days) = value.parse::<usize>() {
+                if days > 0 {
+                    return Some(days);
+                }
+            }
+        }
+    }
+    None
+}
+
 pub fn write_xlsx_dto_map(
     path: &str,
     items: HashMap<ExportOptions, Vec<Product>, impl BuildHasher>,
@@ -215,9 +230,9 @@ pub fn write_xlsx_dto_map(
         .values()
         .flatten()
         .map(|p| {
+            let images = crate::normalize_image_urls(&p.images);
             (
-                itertools::intersperse(p.images.iter().take(10).cloned(), ",".to_string())
-                    .collect(),
+                itertools::intersperse(images.into_iter().take(10), ",".to_string()).collect(),
                 p.keywords.clone().unwrap_or_default(),
                 p.currency.clone(),
             )
@@ -226,11 +241,11 @@ pub fn write_xlsx_dto_map(
     let available: Vec<_> = items
         .iter()
         .flat_map(|(o, i)| {
-            i.iter().map(|Product { available, .. }| match available {
+            i.iter().map(|p| match p.available {
                 Availability::Available => "!".to_string(),
                 Availability::NotAvailable => "-".to_string(),
-                Availability::OnOrder => o
-                    .delivery_time
+                Availability::OnOrder => delivery_days_from_params(&p.params)
+                    .or(o.delivery_time)
                     .map(|t| t.to_string())
                     .unwrap_or_else(|| "0".to_string()),
             })

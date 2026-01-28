@@ -123,6 +123,20 @@ textarea { min-height: 160px; resize: vertical; }
 
 <div class="wrap">
 	<form id="product-edit" class="card grid" method="post" action="/shop/{{shop.id}}/products/{{product.article}}/edit">
+		{% if is_manual %}
+			<div>
+				<label>Артикул (власний товар)</label>
+				<input type="text" name="article" value="{{ product.article }}">
+				<div class="hint">Зміна артикулу створить новий запис і оновить редирект. Для імпортних товарів артикул не змінюється.</div>
+			</div>
+		{% else %}
+			<div>
+				<label>Артикул</label>
+				<span class="pill">{{ product.article }}</span>
+				<div class="hint">Артикул можна редагувати лише для власних товарів.</div>
+			</div>
+		{% endif %}
+
 		<div>
 			<label>Заголовок</label>
 			<input type="text" name="title" value="{% if let Some(t) = settings.title.as_ref() %}{{t}}{% else %}{{product.title}}{% endif %}">

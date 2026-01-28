@@ -175,6 +175,38 @@ pub fn parse_vendor_from_link<S: AsRef<str>>(l: S) -> Option<String> {
         .map(|m| m.as_str().to_string())
 }
 
+pub fn normalize_image_urls(images: &[String]) -> Vec<String> {
+    let uploads_base = std::env::var("UPLOADS_BASE_URL")
+        .ok()
+        .map(|s| s.trim_end_matches('/').to_string())
+        .filter(|s| !s.is_empty());
+    images
+        .iter()
+        .map(|i| {
+            if i.starts_with("http://") || i.starts_with("https://") {
+                if let Some(base) = &uploads_base {
+                    if let Some(rest) = i.split("/static/uploads/").nth(1) {
+                        return format!("{base}/static/uploads/{rest}");
+                    }
+                }
+                return i.clone();
+            }
+            if i.starts_with("/static/uploads/") {
+                if let Some(base) = &uploads_base {
+                    return format!("{base}{i}");
+                }
+                return i.clone();
+            }
+            if i.starts_with('/') {
+                // DT/Maxton зберігає відносні шляхи та mini_ прев'юшки
+                format!("https://design-tuning.com{}", i.replace("mini_", ""))
+            } else {
+                i.clone()
+            }
+        })
+        .collect()
+}
+
 pub fn duration_until_midnight() -> Duration {
     let now = time::OffsetDateTime::now_utc();
     let mut next_midnight = time::OffsetDateTime::now_utc()

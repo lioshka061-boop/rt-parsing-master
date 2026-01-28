@@ -1250,6 +1250,7 @@ pub struct ShopProductNewPage {
     shop: Shop,
     user: UserCredentials,
     category_options: Vec<CategoryOption>,
+    model_options: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -1995,12 +1996,29 @@ async fn shop_products_bulk(
 async fn shop_product_new_page(
     ShopAccess { shop, user }: ShopAccess,
     product_category_repo: Data<Arc<dyn product_category::ProductCategoryRepository>>,
+    dt_repo: Data<Arc<dyn dt::product::ProductRepository + Send>>,
 ) -> Response {
     let category_options = build_category_options(product_category_repo.get_ref(), &shop).await;
+    let mut model_set = std::collections::HashSet::new();
+    if let Ok(list) = dt_repo.list().await {
+        for item in list {
+            let model = item.model.0.trim().to_string();
+            if model.is_empty() {
+                continue;
+            }
+            model_set.insert(model);
+            if model_set.len() >= 500 {
+                break;
+            }
+        }
+    }
+    let mut model_options: Vec<String> = model_set.into_iter().collect();
+    model_options.sort();
     render_template(ShopProductNewPage {
         shop,
         user,
         category_options,
+        model_options,
     })
 }
 
@@ -2027,6 +2045,7 @@ pub struct ShopProductEditPage {
     selected_category_id: String,
     available_value: String,
     preview_image: Option<String>,
+    is_manual: bool,
 }
 
 pub struct CategoryOption {
@@ -2081,6 +2100,10 @@ fn availability_to_value(a: Availability) -> &'static str {
     }
 }
 
+fn is_manual_product(product: &dt::product::Product) -> bool {
+    product.url.0.to_lowercase().contains("/manual/")
+}
+
 #[get("/shop/{shop_id}/products/{article}/edit")]
 async fn shop_product_edit_page(
     ShopAccess { shop, user }: ShopAccess,
@@ -2126,6 +2149,7 @@ async fn shop_product_edit_page(
             .unwrap_or_else(|| product.available.clone()),
     )
     .to_string();
+    let is_manual = is_manual_product(&product);
 
     render_template(ShopProductEditPage {
         shop,
@@ -2138,11 +2162,13 @@ async fn shop_product_edit_page(
         selected_category_id,
         available_value,
         preview_image,
+        is_manual,
     })
 }
 
 #[derive(Deserialize)]
 pub struct ShopProductEditForm {
+    pub article: Option<String>,
     pub title: Option<String>,
     pub description: Option<String>,
     #[serde(deserialize_with = "empty_string_as_none_parse")]
@@ -2178,8 +2204,9 @@ async fn shop_product_edit_save(
     let (_shop_param, article) = article.into_inner();
     let all = dt_repo.list().await.unwrap_or_default();
     let base = all
-        .into_iter()
+        .iter()
         .find(|p| p.article.eq_ignore_ascii_case(&article))
+        .cloned()
         .ok_or(ControllerError::NotFound)?;
 
     let now = OffsetDateTime::now_utc();
@@ -2216,6 +2243,38 @@ async fn shop_product_edit_save(
             created_at: now,
             updated_at: now,
         });
+
+    let mut redirect_article = base.article.clone();
+    let mut remove_article: Option<String> = None;
+    if is_manual_product(&base) {
+        let requested_article = form
+            .article
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        if let Some(requested_article) = requested_article {
+            if !requested_article.eq_ignore_ascii_case(&base.article) {
+                if all
+                    .iter()
+                    .any(|p| p.article.eq_ignore_ascii_case(requested_article))
+                {
+                    return Err(ControllerError::InvalidInput {
+                        field: "article".to_string(),
+                        msg: "Артикул вже використовується іншим товаром".to_string(),
+                    });
+                }
+
+                let mut updated = base.clone();
+                updated.article = requested_article.to_string();
+                dt_repo.save(updated).await?;
+                let _ = dt_repo.delete_articles(&[base.article.clone()]).await;
+
+                current.article = requested_article.to_string();
+                redirect_article = requested_article.to_string();
+                remove_article = Some(base.article.clone());
+            }
+        }
+    }
 
     current.title = form
         .title
@@ -2419,9 +2478,12 @@ async fn shop_product_edit_save(
     current.updated_at = now;
 
     shop_product_repo.upsert(current).await?;
+    if let Some(old_article) = remove_article {
+        let _ = shop_product_repo.remove(shop.id, &old_article).await;
+    }
     Ok(see_other(&format!(
         "/shop/{}/products/{}/edit",
-        shop.id, base.article
+        shop.id, redirect_article
     )))
 }
 
@@ -2451,10 +2513,11 @@ pub struct ProductCreateMultipartForm {
     price: Option<Text<String>>,
     article: Option<Text<String>>,
     brand: Text<String>,
-    model: Text<String>,
+    model: Option<Text<String>>,
     category: Option<Text<String>>,
     site_category_id: Option<Text<String>>,
     available: Option<Text<String>>,
+    delivery_days: Option<Text<String>>,
     images: Option<Text<String>>,
     upsell: Option<Text<String>>,
     images_files: Vec<TempFile>,
@@ -2472,6 +2535,7 @@ struct ProductCreateInput {
     category: Option<String>,
     site_category_id: Option<String>,
     available: Option<String>,
+    delivery_days: Option<usize>,
     images: Option<String>,
     upsell: Option<String>,
     images_files: Vec<TempFile>,
@@ -2486,7 +2550,7 @@ fn normalize_text_value(value: Option<Text<String>>) -> Option<String> {
 fn parse_images_csv(value: Option<String>) -> Vec<String> {
     value
         .unwrap_or_default()
-        .split(',')
+        .split(|c| c == ',' || c == '\n' || c == '\r')
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
         .map(str::to_string)
@@ -2559,10 +2623,14 @@ impl ProductCreateInput {
             price,
             article: normalize_text_value(form.article),
             brand: form.brand.0.trim().to_string(),
-            model: form.model.0.trim().to_string(),
+            model: normalize_text_value(form.model)
+                .unwrap_or_else(|| "Універсальна".to_string()),
             category: normalize_text_value(form.category),
             site_category_id: normalize_text_value(form.site_category_id),
             available: normalize_text_value(form.available),
+            delivery_days: normalize_text_value(form.delivery_days)
+                .and_then(|v| v.parse::<usize>().ok())
+                .filter(|v| *v > 0),
             images: normalize_text_value(form.images),
             upsell: normalize_text_value(form.upsell),
             images_files: form.images_files,
@@ -2598,12 +2666,7 @@ async fn shop_product_update(
         product.price = Some(price);
     }
     if let Some(images) = form.images {
-        let imgs = images
-            .split(',')
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-            .map(str::to_string)
-            .collect::<Vec<_>>();
+        let imgs = parse_images_csv(Some(images));
         if !imgs.is_empty() {
             product.images = imgs;
         }
@@ -2668,23 +2731,58 @@ async fn shop_product_create(
         Some("not_available") => Availability::NotAvailable,
         _ => Availability::Available,
     };
-    let site_category_id = input
+    let mut attributes = None;
+    if matches!(available, Availability::OnOrder) {
+        if let Some(days) = input.delivery_days {
+            let mut attrs = HashMap::new();
+            attrs.insert("delivery_days".to_string(), days.to_string());
+            attributes = Some(attrs);
+        }
+    }
+    let mut site_category_id = input
         .site_category_id
         .as_deref()
         .and_then(|s| uuid::Uuid::parse_str(s).ok());
     let mut category = input.category;
-    if category
-        .as_ref()
-        .map(|v| v.trim().is_empty())
-        .unwrap_or(true)
-    {
-        if let Some(id) = site_category_id {
-            let categories = product_category_repo
+    if site_category_id.is_none() {
+        if let Some(name) = category.as_ref().map(|v| v.trim().to_string()).filter(|v| !v.is_empty()) {
+            let existing = product_category_repo
                 .select(&product_category::ByShop(shop.id))
                 .await
-                .unwrap_or_default();
-            category = categories.into_iter().find(|c| c.id == id).map(|c| c.name);
+                .unwrap_or_default()
+                .into_iter()
+                .find(|c| c.name.eq_ignore_ascii_case(&name));
+            if let Some(found) = existing {
+                site_category_id = Some(found.id);
+                category = Some(found.name);
+            } else {
+                let new_category = product_category::ProductCategory {
+                    id: uuid::Uuid::new_v4(),
+                    parent_id: None,
+                    name: name.clone(),
+                    regex: None,
+                    shop_id: shop.id,
+                    status: product_category::CategoryStatus::PublishedNoIndex,
+                    visibility_on_site: product_category::Visibility::Visible,
+                    indexing_status: product_category::IndexingStatus::NoIndex,
+                    seo_title: None,
+                    seo_description: None,
+                    seo_text: None,
+                    image_url: None,
+                };
+                if product_category_repo.save(new_category.clone()).await.is_ok() {
+                    site_category_id = Some(new_category.id);
+                    category = Some(new_category.name);
+                }
+            }
         }
+    }
+    if let Some(id) = site_category_id {
+        let categories = product_category_repo
+            .select(&product_category::ByShop(shop.id))
+            .await
+            .unwrap_or_default();
+        category = categories.into_iter().find(|c| c.id == id).map(|c| c.name);
     }
     let title = input.title;
     let title_ua = input.title_ua;
@@ -2701,7 +2799,7 @@ async fn shop_product_create(
         brand: input.brand,
         model: Model(input.model),
         category,
-        attributes: None,
+        attributes,
         available,
         quantity: None,
         url,

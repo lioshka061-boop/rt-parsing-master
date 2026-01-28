@@ -58,6 +58,7 @@ function extractArticleFromSlug(slug: string): string | null {
   }
   const last = decoded.split('-').pop() || '';
   if (!last) return null;
+  if (/^[a-z0-9+]+$/i.test(last) && /[A-Z]/.test(last)) return last;
   if (/[+]/.test(last) && /^[a-z0-9+]+$/i.test(last)) return last;
   if (!/[0-9]/.test(last)) return null;
   if (!/^[a-z0-9]+$/i.test(last)) return null;

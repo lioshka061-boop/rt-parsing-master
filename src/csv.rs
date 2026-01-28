@@ -205,9 +205,9 @@ pub async fn write_dto_map(
         .values()
         .flatten()
         .map(|p| {
+            let images = crate::normalize_image_urls(&p.images);
             (
-                itertools::intersperse(p.images.iter().take(10).cloned(), ",".to_string())
-                    .collect(),
+                itertools::intersperse(images.into_iter().take(10), ",".to_string()).collect(),
                 p.keywords.clone().unwrap_or_default(),
                 p.currency.clone(),
             )
@@ -216,11 +216,11 @@ pub async fn write_dto_map(
     let available: Vec<_> = items
         .iter()
         .flat_map(|(o, i)| {
-            i.iter().map(|Product { available, .. }| match available {
+            i.iter().map(|p| match p.available {
                 Availability::Available => "!".to_string(),
                 Availability::NotAvailable => "-".to_string(),
-                Availability::OnOrder => o
-                    .delivery_time
+                Availability::OnOrder => delivery_days_from_params(&p.params)
+                    .or(o.delivery_time)
                     .map(|t| t.to_string())
                     .unwrap_or_else(|| "0".to_string()),
             })

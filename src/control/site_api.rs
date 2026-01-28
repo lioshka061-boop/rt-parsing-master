@@ -462,7 +462,7 @@ pub(crate) async fn load_site_products_cached(
             price,
             available,
             url: p.url.0.clone(),
-            images: normalize_images(&images),
+            images: crate::normalize_image_urls(&images),
             category,
             description,
             status: Some(status.as_str().to_string()),
@@ -928,27 +928,6 @@ fn default_product_source() -> crate::shop_product::SourceType {
     crate::shop_product::SourceType::Parsing
 }
 
-fn normalize_images(images: &[String]) -> Vec<String> {
-    let uploads_base = uploads_base();
-    images
-        .iter()
-        .map(|i| {
-            if i.starts_with("/static/uploads/") {
-                if let Some(base) = &uploads_base {
-                    return format!("{base}{i}");
-                }
-                return i.clone();
-            }
-            if i.starts_with('/') {
-                // DT/Maxton зберігає відносні шляхи та mini_ прев'юшки
-                format!("https://design-tuning.com{}", i.replace("mini_", ""))
-            } else {
-                i.clone()
-            }
-        })
-        .collect()
-}
-
 fn ensure_api_key(req: &HttpRequest) -> Result<(), crate::control::ControllerError> {
     let expected = std::env::var("SITE_API_KEY")
         .map_err(|_| crate::control::ControllerError::Forbidden)?;
@@ -1149,14 +1128,6 @@ fn site_base() -> Option<String> {
         .ok()
         .map(|s| s.trim_end_matches('/').to_string())
         .filter(|s| !s.is_empty())
-}
-
-fn uploads_base() -> Option<String> {
-    std::env::var("UPLOADS_BASE_URL")
-        .ok()
-        .map(|s| s.trim_end_matches('/').to_string())
-        .filter(|s| !s.is_empty())
-        .or_else(site_base)
 }
 
 pub(crate) fn canonical_from_path(path: &str) -> Option<String> {
