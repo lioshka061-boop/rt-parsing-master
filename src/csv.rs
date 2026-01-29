@@ -6,7 +6,7 @@ use rt_types::product::Product;
 use rt_types::shop::{Discount, ExportOptions};
 use rt_types::{Availability, DescriptionOptions};
 use rust_decimal::Decimal;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::hash::BuildHasher;
 use std::iter;
 use tokio_util::compat::FuturesAsyncWriteCompatExt;
@@ -340,19 +340,18 @@ pub async fn write_dto_map(
     }
     let params_names = items
         .iter()
-        .flat_map(|(_, products)| products.iter().map(|p| &p.params))
-        .max_by_key(|n| n.len());
-    let params = params_names.into_iter().flat_map(|_name| {
-        let values = items
-            .iter()
-            .flat_map(|(_, p)| p)
-            .flat_map(move |i| i.params.values());
-        let names = items
-            .iter()
-            .flat_map(|(_, p)| p)
-            .flat_map(move |i| i.params.keys());
+        .flat_map(|(_, products)| products.iter().flat_map(|p| p.params.keys().dedup()))
+        .collect::<HashSet<_>>();
+    let params = params_names.into_iter().flat_map(|name| {
+        let values = items.iter().flat_map(|(_, p)| p).map(move |i| {
+            i.params
+                .iter()
+                .find(|(k, _)| *k == name)
+                .map(|(_, v)| v)
+                .unwrap_or(&EMPTY_STRING)
+        });
         let values: Box<dyn Iterator<Item = &String>> = Box::new(values);
-        let names: Box<dyn Iterator<Item = &String>> = Box::new(names);
+        let names: Box<dyn Iterator<Item = &String>> = Box::new(vec![name; len].into_iter());
         let measure: Box<dyn Iterator<Item = &String>> =
             Box::new(vec![&EMPTY_STRING; len].into_iter());
         [
