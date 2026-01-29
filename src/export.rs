@@ -1293,6 +1293,20 @@ fn is_dt_export_blocked(product: &dt::product::Product) -> bool {
     false
 }
 
+fn supplier_key(product: &dt::product::Product) -> Option<String> {
+    product
+        .supplier
+        .as_ref()
+        .map(|s| normalize_supplier_key(s))
+        .filter(|s| !s.is_empty())
+}
+
+fn supplier_is(product: &dt::product::Product, target: &str) -> bool {
+    supplier_key(product)
+        .as_deref()
+        .is_some_and(|s| s.eq_ignore_ascii_case(target))
+}
+
 async fn replace_export_file(src: &str, dest: &str) -> Result<(), std::io::Error> {
     let tmp_dest = format!("{dest}.part");
     tokio::fs::copy(src, &tmp_dest).await?;
@@ -2563,6 +2577,9 @@ pub async fn do_export(
     ) = dt
         .map(|dt| {
             let (maxton, rest): (Vec<_>, Vec<_>) = dt.into_iter().partition(|p| {
+                if supplier_key(p).is_some() {
+                    return supplier_is(p, "maxton");
+                }
                 p.article.ends_with("-M")
                     || p.title.to_lowercase().contains("maxton")
                     || p.description
@@ -2571,13 +2588,28 @@ pub async fn do_export(
             });
             let (jgd, rest): (Vec<_>, Vec<_>) = rest
                 .into_iter()
-                .partition(|p| p.article.to_uppercase().starts_with("JGD"));
+                .partition(|p| {
+                    if supplier_key(p).is_some() {
+                        return supplier_is(p, "jgd");
+                    }
+                    p.article.to_uppercase().starts_with("JGD")
+                });
             let (pl, rest): (Vec<_>, Vec<_>) = rest
                 .into_iter()
-                .partition(|p| PL_ARTICLES.contains(p.article.to_uppercase().as_str()));
+                .partition(|p| {
+                    if supplier_key(p).is_some() {
+                        return supplier_is(p, "pl");
+                    }
+                    PL_ARTICLES.contains(p.article.to_uppercase().as_str())
+                });
             let (skm, rest): (Vec<_>, Vec<_>) = rest
                 .into_iter()
-                .partition(|p| p.article.to_uppercase().starts_with("SKM"));
+                .partition(|p| {
+                    if supplier_key(p).is_some() {
+                        return supplier_is(p, "skm");
+                    }
+                    p.article.to_uppercase().starts_with("SKM")
+                });
             let (op_tuning, dt): (Vec<_>, Vec<_>) = rest
                 .into_iter()
                 .partition(|p| site_publish::detect_supplier(p).as_deref() == Some("op_tuning"));

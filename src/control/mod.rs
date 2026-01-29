@@ -2039,11 +2039,13 @@ pub struct ShopProductEditPage {
     user: UserCredentials,
     product: dt::product::Product,
     category_options: Vec<CategoryOption>,
+    model_options: Vec<String>,
     settings: shop_product::ShopProduct,
     images_csv: String,
     recommended_csv: String,
     selected_category_id: String,
     available_value: String,
+    delivery_days_value: Option<usize>,
     preview_image: Option<String>,
     is_manual: bool,
 }
@@ -2115,8 +2117,9 @@ async fn shop_product_edit_page(
     let (_shop_param, article) = article.into_inner();
     let all = dt_repo.list().await.unwrap_or_default();
     let product = all
-        .into_iter()
+        .iter()
         .find(|p| p.article.eq_ignore_ascii_case(&article))
+        .cloned()
         .ok_or(ControllerError::NotFound)?;
 
     shop_product_repo
@@ -2130,6 +2133,19 @@ async fn shop_product_edit_page(
         })?;
 
     let category_options = build_category_options(product_category_repo.get_ref(), &shop).await;
+    let mut model_set = std::collections::HashSet::new();
+    for item in all.iter() {
+        let model = item.model.0.trim().to_string();
+        if model.is_empty() {
+            continue;
+        }
+        model_set.insert(model);
+        if model_set.len() >= 500 {
+            break;
+        }
+    }
+    let mut model_options: Vec<String> = model_set.into_iter().collect();
+    model_options.sort();
 
     let effective_images = settings
         .images
@@ -2137,6 +2153,10 @@ async fn shop_product_edit_page(
         .unwrap_or_else(|| product.images.clone());
     let images_csv = effective_images.join(", ");
     let preview_image = effective_images.first().cloned();
+    let delivery_days_value = product
+        .attributes
+        .as_ref()
+        .and_then(crate::xlsx::delivery_days_from_params);
     let recommended_csv = settings.recommended_articles.join(", ");
     let selected_category_id = settings
         .site_category_id
@@ -2156,52 +2176,63 @@ async fn shop_product_edit_page(
         user,
         product,
         category_options,
+        model_options,
         settings,
         images_csv,
         recommended_csv,
         selected_category_id,
         available_value,
+        delivery_days_value,
         preview_image,
         is_manual,
     })
 }
 
-#[derive(Deserialize)]
+#[derive(MultipartForm, Debug)]
 pub struct ShopProductEditForm {
-    pub article: Option<String>,
-    pub title: Option<String>,
-    pub description: Option<String>,
-    #[serde(deserialize_with = "empty_string_as_none_parse")]
-    pub price: Option<usize>,
-    pub images: Option<String>,
-    pub available: Option<String>,
-    pub site_category_id: Option<String>,
-    pub recommend_mode: Option<String>,
-    pub recommended_articles: Option<String>,
-    pub is_hit: Option<String>,
-    pub h1: Option<String>,
-    pub seo_text: Option<String>,
-    pub canonical: Option<String>,
-    pub robots: Option<String>,
-    pub og_title: Option<String>,
-    pub og_description: Option<String>,
-    pub og_image: Option<String>,
-    pub slug: Option<String>,
-    pub faq: Option<String>,
-    pub visibility_on_site: Option<String>,
-    pub indexing_status: Option<String>,
-    pub status: Option<String>,
+    article: Option<Text<String>>,
+    title: Option<Text<String>>,
+    description: Option<Text<String>>,
+    title_ua: Option<Text<String>>,
+    description_ua: Option<Text<String>>,
+    price: Option<Text<String>>,
+    images: Option<Text<String>>,
+    images_files: Vec<TempFile>,
+    available: Option<Text<String>>,
+    delivery_days: Option<Text<String>>,
+    brand: Option<Text<String>>,
+    model: Option<Text<String>>,
+    category: Option<Text<String>>,
+    site_category_label: Option<Text<String>>,
+    site_category_id: Option<Text<String>>,
+    recommend_mode: Option<Text<String>>,
+    recommended_articles: Option<Text<String>>,
+    is_hit: Option<Text<String>>,
+    h1: Option<Text<String>>,
+    seo_text: Option<Text<String>>,
+    canonical: Option<Text<String>>,
+    robots: Option<Text<String>>,
+    og_title: Option<Text<String>>,
+    og_description: Option<Text<String>>,
+    og_image: Option<Text<String>>,
+    slug: Option<Text<String>>,
+    faq: Option<Text<String>>,
+    visibility_on_site: Option<Text<String>>,
+    indexing_status: Option<Text<String>>,
+    status: Option<Text<String>>,
 }
 
 #[post("/shop/{shop_id}/products/{article}/edit")]
 async fn shop_product_edit_save(
     ShopAccess { shop, .. }: ShopAccess,
     article: Path<(String, String)>,
-    Form(form): Form<ShopProductEditForm>,
+    form: MultipartForm<ShopProductEditForm>,
     dt_repo: Data<Arc<dyn dt::product::ProductRepository + Send>>,
     shop_product_repo: Data<Arc<dyn shop_product::ShopProductRepository>>,
+    product_category_repo: Data<Arc<dyn product_category::ProductCategoryRepository>>,
 ) -> Response {
     let (_shop_param, article) = article.into_inner();
+    let form = form.into_inner();
     let all = dt_repo.list().await.unwrap_or_default();
     let base = all
         .iter()
@@ -2249,14 +2280,14 @@ async fn shop_product_edit_save(
     if is_manual_product(&base) {
         let requested_article = form
             .article
-            .as_deref()
-            .map(str::trim)
+            .map(|v| v.0)
+            .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty());
         if let Some(requested_article) = requested_article {
             if !requested_article.eq_ignore_ascii_case(&base.article) {
                 if all
                     .iter()
-                    .any(|p| p.article.eq_ignore_ascii_case(requested_article))
+                    .any(|p| p.article.eq_ignore_ascii_case(&requested_article))
                 {
                     return Err(ControllerError::InvalidInput {
                         field: "article".to_string(),
@@ -2276,44 +2307,92 @@ async fn shop_product_edit_save(
         }
     }
 
-    current.title = form
-        .title
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-    current.description = form
-        .description
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-    current.price = form.price;
-    current.images = form
-        .images
-        .map(|images| {
-            images
-                .split(',')
-                .map(|s| s.trim())
-                .filter(|s| !s.is_empty())
-                .map(str::to_string)
-                .collect::<Vec<_>>()
-        })
-        .filter(|v| !v.is_empty());
-    current.available = match form.available.as_deref() {
+    let form_title = normalize_text_value(form.title);
+    let form_description = normalize_text_value(form.description);
+    let form_title_ua = normalize_text_value(form.title_ua);
+    let form_description_ua = normalize_text_value(form.description_ua);
+    let form_price = parse_price_value(form.price);
+    let form_images = normalize_text_value(form.images);
+    let form_delivery_days = normalize_text_value(form.delivery_days)
+        .and_then(|v| v.parse::<usize>().ok())
+        .filter(|v| *v > 0);
+    let form_brand = normalize_text_value(form.brand);
+    let form_model = normalize_text_value(form.model);
+    let form_category = normalize_text_value(form.category);
+    let form_site_category_label = normalize_text_value(form.site_category_label);
+    let form_site_category_id = normalize_text_value(form.site_category_id);
+
+    let mut images_list = parse_images_csv(form_images.clone());
+    if images_list.is_empty() {
+        images_list = base.images.clone();
+    }
+    let uploaded_images = save_product_uploads(&form.images_files, &redirect_article)?;
+    if !uploaded_images.is_empty() {
+        if images_list.is_empty() {
+            images_list = uploaded_images.clone();
+        } else {
+            images_list.extend(uploaded_images.clone());
+        }
+    }
+
+    current.title = form_title.clone();
+    current.description = form_description.clone();
+    current.price = form_price;
+    current.images = if images_list.is_empty() {
+        None
+    } else {
+        Some(images_list.clone())
+    };
+    current.available = match normalize_text_value(form.available).as_deref() {
         Some("on_order") => Some(Availability::OnOrder),
         Some("not_available") => Some(Availability::NotAvailable),
         Some("available") => Some(Availability::Available),
         _ => None,
     };
-    current.site_category_id = form
-        .site_category_id
+    let mut site_category_id = form_site_category_id
         .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
         .and_then(|s| uuid::Uuid::parse_str(s).ok());
-    current.recommend_mode = match form.recommend_mode.as_deref() {
+    if site_category_id.is_none() {
+        if let Some(name) = form_site_category_label
+            .as_ref()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+        {
+            let existing = product_category_repo
+                .select(&product_category::ByShop(shop.id))
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .find(|c| c.name.eq_ignore_ascii_case(&name));
+            if let Some(found) = existing {
+                site_category_id = Some(found.id);
+            } else {
+                let new_category = product_category::ProductCategory {
+                    id: uuid::Uuid::new_v4(),
+                    parent_id: None,
+                    name: name.clone(),
+                    regex: None,
+                    shop_id: shop.id,
+                    status: product_category::CategoryStatus::PublishedNoIndex,
+                    visibility_on_site: product_category::Visibility::Visible,
+                    indexing_status: product_category::IndexingStatus::NoIndex,
+                    seo_title: None,
+                    seo_description: None,
+                    seo_text: None,
+                    image_url: None,
+                };
+                if product_category_repo.save(new_category.clone()).await.is_ok() {
+                    site_category_id = Some(new_category.id);
+                }
+            }
+        }
+    }
+    current.site_category_id = site_category_id;
+    current.recommend_mode = match normalize_text_value(form.recommend_mode).as_deref() {
         Some("manual") => shop_product::RecommendMode::Manual,
         _ => shop_product::RecommendMode::Auto,
     };
-    current.recommended_articles = form
-        .recommended_articles
+    current.recommended_articles = normalize_text_value(form.recommended_articles)
         .unwrap_or_default()
         .split(',')
         .map(|s| s.trim())
@@ -2321,56 +2400,77 @@ async fn shop_product_edit_save(
         .map(str::to_string)
         .collect();
     current.is_hit = form.is_hit.is_some();
-    current.h1 = form
-        .h1
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-    current.seo_text = form
-        .seo_text
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-    current.canonical = form
-        .canonical
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-    current.robots = form
-        .robots
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-    current.og_title = form
-        .og_title
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-    current.og_description = form
-        .og_description
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-    current.og_image = form
-        .og_image
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-    current.slug = form
-        .slug
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-    current.faq = form
-        .faq
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-    current.visibility_on_site = match form.visibility_on_site.as_deref() {
+    current.h1 = normalize_text_value(form.h1);
+    current.seo_text = normalize_text_value(form.seo_text);
+    current.canonical = normalize_text_value(form.canonical);
+    current.robots = normalize_text_value(form.robots);
+    current.og_title = normalize_text_value(form.og_title);
+    current.og_description = normalize_text_value(form.og_description);
+    current.og_image = normalize_text_value(form.og_image);
+    current.slug = normalize_text_value(form.slug);
+    current.faq = normalize_text_value(form.faq);
+    current.visibility_on_site = match normalize_text_value(form.visibility_on_site).as_deref() {
         Some("visible") => shop_product::Visibility::Visible,
         _ => shop_product::Visibility::Hidden,
     };
-    current.indexing_status = match form.indexing_status.as_deref() {
+    current.indexing_status = match normalize_text_value(form.indexing_status).as_deref() {
         Some("index") => shop_product::IndexingStatus::Index,
         _ => shop_product::IndexingStatus::NoIndex,
     };
     current.source_type = shop_product::SourceType::Manual;
-    let requested_status = match form.status.as_deref() {
+    let requested_status = match normalize_text_value(form.status).as_deref() {
         Some("published_noindex") => shop_product::ProductStatus::PublishedNoIndex,
         Some("seo_ready") => shop_product::ProductStatus::SeoReady,
         _ => shop_product::ProductStatus::Draft,
     };
+
+    if is_manual_product(&base) {
+        let mut updated = base.clone();
+        if let Some(title) = form_title {
+            updated.title = title;
+        }
+        if let Some(desc) = form_description {
+            updated.description = Some(desc);
+        }
+        if let Some(title_ua) = form_title_ua {
+            updated.title_ua = Some(title_ua);
+        }
+        if let Some(desc_ua) = form_description_ua {
+            updated.description_ua = Some(desc_ua);
+        }
+        if let Some(price) = form_price {
+            updated.price = Some(price);
+            updated.source_price = Some(price);
+        }
+        if let Some(brand) = form_brand {
+            updated.brand = brand;
+        }
+        if let Some(model) = form_model {
+            updated.model = crate::Model(model);
+        }
+        if let Some(category) = form_category {
+            updated.category = Some(category);
+        }
+
+        let availability = current
+            .available
+            .clone()
+            .unwrap_or_else(|| updated.available.clone());
+        updated.available = availability.clone();
+        let mut attrs = updated.attributes.clone().unwrap_or_default();
+        attrs.remove("delivery_days");
+        if matches!(availability, Availability::OnOrder) {
+            if let Some(days) = form_delivery_days {
+                attrs.insert("delivery_days".to_string(), days.to_string());
+            }
+        }
+        updated.attributes = if attrs.is_empty() { None } else { Some(attrs) };
+
+        if !images_list.is_empty() {
+            updated.images = images_list.clone();
+        }
+        dt_repo.save(updated).await?;
+    }
 
     if matches!(requested_status, shop_product::ProductStatus::SeoReady) {
         let title = current.title.clone().unwrap_or_else(|| base.title.clone());
@@ -2547,6 +2647,16 @@ fn normalize_text_value(value: Option<Text<String>>) -> Option<String> {
         .filter(|v| !v.is_empty())
 }
 
+fn parse_price_value(value: Option<Text<String>>) -> Option<usize> {
+    let raw = value.map(|v| v.0).unwrap_or_default();
+    let digits: String = raw.chars().filter(|c| c.is_ascii_digit()).collect();
+    if digits.is_empty() {
+        None
+    } else {
+        digits.parse::<usize>().ok()
+    }
+}
+
 fn parse_images_csv(value: Option<String>) -> Vec<String> {
     value
         .unwrap_or_default()
@@ -2612,8 +2722,7 @@ fn save_product_uploads(
 
 impl ProductCreateInput {
     fn from_multipart(form: ProductCreateMultipartForm) -> Self {
-        let price = normalize_text_value(form.price)
-            .and_then(|v| v.parse::<usize>().ok());
+        let price = parse_price_value(form.price);
 
         ProductCreateInput {
             title: form.title.0.trim().to_string(),

@@ -105,9 +105,32 @@ textarea { min-height: 160px; resize: vertical; }
 .pill.status-draft { border-color:#dc2626; color:#dc2626; }
 .pill.status-noindex { border-color:#f59e0b; color:#f59e0b; }
 .pill.status-seo { border-color:#10b981; color:#10b981; }
+.image-upload { display:flex; flex-direction:column; gap:8px; }
+.image-upload-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.image-upload-controls button { border:1px solid #1f2937; background:#111827; color:#9ca3af; border-radius:10px; padding:6px 10px; cursor:pointer; }
+.image-list { display:grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap:10px; }
+.image-item { position:relative; border:1px dashed #1f2937; border-radius:12px; padding:8px; background:#111827; display:flex; flex-direction:column; gap:8px; }
+.image-item img { width:100%; height:92px; object-fit:cover; border-radius:8px; background:#0b1220; }
+.image-index { position:absolute; top:6px; left:6px; background:#111827; color:#e5e7eb; border:1px solid #1f2937; border-radius:8px; font-size:11px; padding:2px 6px; }
+.image-actions { display:flex; gap:6px; justify-content:space-between; }
+.image-actions button { border:1px solid #1f2937; background:#0b1220; color:#e5e7eb; border-radius:8px; padding:4px 6px; cursor:pointer; font-size:12px; }
+.image-actions button:disabled { opacity:0.4; cursor:default; }
+.image-item.drag-over { border-color:#2563eb; box-shadow:0 0 0 1px #2563eb inset; }
+.image-item.dragging { opacity:0.6; }
+.image-links { display:flex; flex-direction:column; gap:8px; }
+.image-link-list { display:flex; flex-direction:column; gap:8px; }
+.image-link-row { display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:center; }
+.image-link-index { width:28px; height:28px; border-radius:8px; border:1px solid #1f2937; background:#111827; color:#e5e7eb; display:flex; align-items:center; justify-content:center; font-size:12px; }
+.image-link-input { width:100%; border-radius:12px; border:1px solid #1f2937; background:#111827; color:#e5e7eb; padding:10px 12px; }
+.image-link-add { border:1px solid #1f2937; background:#111827; color:#e5e7eb; border-radius:10px; padding:6px 10px; cursor:pointer; }
+.image-link-remove { border:1px solid #1f2937; background:#0b1220; color:#9ca3af; border-radius:10px; padding:6px 10px; cursor:pointer; }
+.lang-grid { grid-column: 1 / -1; display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:12px; }
+.lang-col { display:grid; gap:12px; align-content:start; }
+.lang-title { font-size:12px; text-transform:uppercase; color:#9ca3af; letter-spacing:0.08em; }
 
 @media (max-width: 980px) {
 	.wrap { grid-template-columns: 1fr; }
+	.lang-grid { grid-template-columns: 1fr; }
 }
 </style>
 {% endblock %}
@@ -122,7 +145,7 @@ textarea { min-height: 160px; resize: vertical; }
 </div>
 
 <div class="wrap">
-	<form id="product-edit" class="card grid" method="post" action="/shop/{{shop.id}}/products/{{product.article}}/edit">
+	<form id="product-edit" class="card grid" method="post" action="/shop/{{shop.id}}/products/{{product.article}}/edit" enctype="multipart/form-data">
 		{% if is_manual %}
 			<div>
 				<label>Артикул (власний товар)</label>
@@ -137,16 +160,57 @@ textarea { min-height: 160px; resize: vertical; }
 			</div>
 		{% endif %}
 
-		<div>
-			<label>Заголовок</label>
-			<input type="text" name="title" value="{% if let Some(t) = settings.title.as_ref() %}{{t}}{% else %}{{product.title}}{% endif %}">
-			<div class="hint">Порожнє значення → буде використано заголовок з парсингу.</div>
+		<div class="lang-grid">
+			<div class="lang-col">
+				<div class="lang-title">UA</div>
+				<div>
+					<label>Назва (UA)</label>
+					<input type="text" name="title_ua" value="{% if let Some(t) = product.title_ua.as_ref() %}{{t}}{% endif %}" {% if !is_manual %}disabled{% endif %}>
+					<div class="hint">Для власних товарів. Порожнє значення → лишається як було.</div>
+				</div>
+				<div>
+					<label>Опис (UA)</label>
+					<textarea name="description_ua" {% if !is_manual %}disabled{% endif %}>{% if let Some(d) = product.description_ua.as_ref() %}{{d}}{% endif %}</textarea>
+					<div class="hint">Для власних товарів. Можна HTML.</div>
+				</div>
+			</div>
+			<div class="lang-col">
+				<div class="lang-title">RU</div>
+				<div>
+					<label>Назва (RU)</label>
+					<input type="text" name="title" value="{% if let Some(t) = settings.title.as_ref() %}{{t}}{% else %}{{product.title}}{% endif %}">
+					<div class="hint">Порожнє значення → буде використано заголовок з парсингу.</div>
+				</div>
+				<div>
+					<label>Опис (RU)</label>
+					<textarea name="description">{% if let Some(d) = settings.description.as_ref() %}{{d}}{% else %}{{ product.description.clone().unwrap_or_default() }}{% endif %}</textarea>
+					<div class="hint">Можна HTML. Порожнє значення → буде використано опис з парсингу.</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="two">
+			<div>
+				<label>Бренд (авто)</label>
+				<input type="text" name="brand" value="{{ product.brand }}" {% if !is_manual %}disabled{% endif %}>
+				<div class="hint">Марка авто для власних товарів.</div>
+			</div>
+			<div>
+				<label>Модель (авто)</label>
+				<input type="text" name="model" list="model-options" autocomplete="off" value="{{ product.model.0 }}" {% if !is_manual %}disabled{% endif %}>
+				<datalist id="model-options">
+					{% for m in model_options %}
+						<option value="{{m}}"></option>
+					{% endfor %}
+				</datalist>
+				<div class="hint">Виберіть зі списку або введіть нову.</div>
+			</div>
 		</div>
 
 		<div>
-			<label>Опис</label>
-			<textarea name="description">{% if let Some(d) = settings.description.as_ref() %}{{d}}{% else %}{{ product.description.clone().unwrap_or_default() }}{% endif %}</textarea>
-			<div class="hint">Можна HTML. Порожнє значення → буде використано опис з парсингу.</div>
+			<label>Категорія товару (для Prom)</label>
+			<input type="text" name="category" value="{% if let Some(c) = product.category.as_ref() %}{{c}}{% endif %}" {% if !is_manual %}disabled{% endif %}>
+			<div class="hint">Для власних товарів. Якщо пусто — буде без категорії.</div>
 		</div>
 
 		<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
@@ -159,7 +223,7 @@ textarea { min-height: 160px; resize: vertical; }
 			</div>
 			<div>
 				<label>Наявність</label>
-				<select name="available">
+				<select name="available" id="available-select">
 					<option value="available" {% if available_value == "available" %}selected{% endif %}>В наявності</option>
 					<option value="on_order" {% if available_value == "on_order" %}selected{% endif %}>Під замовлення</option>
 					<option value="not_available" {% if available_value == "not_available" %}selected{% endif %}>Немає</option>
@@ -167,20 +231,42 @@ textarea { min-height: 160px; resize: vertical; }
 			</div>
 		</div>
 
-		<div>
-			<label>Фото (посилання через кому)</label>
-			<input type="text" name="images" value="{{ images_csv }}">
+		<div id="delivery-days-field" style="display:none;">
+			<label>Термін (днів) для “Під замовлення”</label>
+			<input type="number" name="delivery_days" id="delivery-days-input" min="1" step="1" inputmode="numeric" value="{% if let Some(v) = delivery_days_value %}{{v}}{% endif %}" {% if !is_manual %}disabled{% endif %}>
+			<div class="hint">Передається на Prom як термін постачання (лише для власних товарів).</div>
 		</div>
 
 		<div>
-			<label>Категорія товару</label>
-			<select name="site_category_id">
-				<option value="">— Не вибрано —</option>
+			<label>Фото (посилання)</label>
+			<input type="hidden" name="images" id="images-hidden" value="{{ images_csv }}">
+			<div class="image-links">
+				<div class="image-link-list" id="image-link-list"></div>
+				<button type="button" class="image-link-add" id="image-link-add">+ Додати фото</button>
+				<div class="hint">Кожне посилання — окреме поле. Додавайте поля кнопкою “+”.</div>
+			</div>
+		</div>
+
+		<div class="image-upload">
+			<label>Фото з ПК</label>
+			<div class="image-upload-controls">
+				<input type="file" id="images-files" name="images_files" accept="image/*" multiple>
+				<button type="button" id="images-clear">Очистити</button>
+			</div>
+			<div class="hint">Після вибору фото можна змінювати порядок (drag або кнопками).</div>
+			<div class="image-list" id="images-list" aria-live="polite"></div>
+		</div>
+
+		<div>
+			<label>Категорія товару (на сайті)</label>
+			<input type="text" name="site_category_label" id="category-input" list="category-options" autocomplete="off" placeholder="Почніть вводити...">
+			<datalist id="category-options">
 				{% for c in category_options %}
-					<option value="{{c.id}}" {% if selected_category_id == c.id %}selected{% endif %}>{{c.label}}</option>
+					<option value="{{c.label}}" data-id="{{c.id}}"></option>
 				{% endfor %}
-			</select>
-			<div class="hint">Список підтягується з вкладки “Категории товаров”.</div>
+			</datalist>
+			<input type="hidden" name="site_category_id" id="category-id" value="{{ selected_category_id }}">
+			<div class="hint">Виберіть зі списку або введіть нову категорію — створиться автоматично.</div>
 		</div>
 
 		<div>
@@ -317,4 +403,244 @@ textarea { min-height: 160px; resize: vertical; }
 		</div>
 	</aside>
 </div>
+<script>
+(() => {
+	const availableSelect = document.getElementById("available-select");
+	const deliveryField = document.getElementById("delivery-days-field");
+	const deliveryInput = document.getElementById("delivery-days-input");
+	if (availableSelect && deliveryField && deliveryInput) {
+		const toggleDelivery = () => {
+			const onOrder = availableSelect.value === "on_order";
+			deliveryField.style.display = onOrder ? "block" : "none";
+			if (!deliveryInput.disabled) {
+				deliveryInput.required = onOrder;
+			}
+			if (!onOrder) {
+				deliveryInput.value = "";
+			}
+		};
+		availableSelect.addEventListener("change", toggleDelivery);
+		toggleDelivery();
+	}
+
+	const imageLinksList = document.getElementById("image-link-list");
+	const imageLinksAdd = document.getElementById("image-link-add");
+	const imageLinksHidden = document.getElementById("images-hidden");
+	if (imageLinksList && imageLinksAdd && imageLinksHidden) {
+		const parseInitial = () => {
+			const raw = imageLinksHidden.value || "";
+			return raw
+				.split(/[\n,]/)
+				.map((value) => value.trim())
+				.filter((value) => value.length > 0);
+		};
+		const syncHidden = () => {
+			const values = Array.from(imageLinksList.querySelectorAll("input"))
+				.map((input) => input.value.trim())
+				.filter((value) => value.length > 0);
+			imageLinksHidden.value = values.join("\n");
+		};
+		const updateIndexes = () => {
+			imageLinksList.querySelectorAll(".image-link-row").forEach((row, idx) => {
+				const label = row.querySelector(".image-link-index");
+				if (label) label.textContent = String(idx + 1);
+			});
+		};
+		const ensureTrailingEmpty = () => {
+			const rows = Array.from(imageLinksList.querySelectorAll(".image-link-row"));
+			if (rows.length === 0) {
+				addRow("");
+				return;
+			}
+			const lastInput = rows[rows.length - 1].querySelector("input");
+			if (lastInput && lastInput.value.trim().length > 0) {
+				addRow("");
+			}
+		};
+		const addRow = (value = "") => {
+			const row = document.createElement("div");
+			row.className = "image-link-row";
+			row.innerHTML = `
+				<span class="image-link-index">1</span>
+				<input type="url" class="image-link-input" placeholder="https://..." />
+				<button type="button" class="image-link-remove" title="Видалити">✕</button>
+			`;
+			const input = row.querySelector("input");
+			const removeBtn = row.querySelector(".image-link-remove");
+			if (input) {
+				input.value = value;
+				input.addEventListener("input", () => {
+					syncHidden();
+					ensureTrailingEmpty();
+				});
+				input.addEventListener("keydown", (event) => {
+					if (event.key === "Enter") {
+						event.preventDefault();
+						ensureTrailingEmpty();
+						const inputs = Array.from(imageLinksList.querySelectorAll("input"));
+						const next = inputs[inputs.indexOf(input) + 1];
+						if (next) next.focus();
+					}
+				});
+			}
+			if (removeBtn) {
+				removeBtn.addEventListener("click", () => {
+					row.remove();
+					updateIndexes();
+					syncHidden();
+					ensureTrailingEmpty();
+				});
+			}
+			imageLinksList.appendChild(row);
+			updateIndexes();
+			syncHidden();
+			return row;
+		};
+		imageLinksAdd.addEventListener("click", () => {
+			addRow("");
+		});
+
+		const initial = parseInitial();
+		if (initial.length === 0) {
+			addRow("");
+		} else {
+			initial.forEach((value) => addRow(value));
+			ensureTrailingEmpty();
+		}
+	}
+
+	const categoryInput = document.getElementById("category-input");
+	const categoryIdInput = document.getElementById("category-id");
+	const categoryOptions = document.querySelectorAll("#category-options option");
+	if (categoryInput && categoryIdInput && categoryOptions.length > 0) {
+		const mapLabelToId = new Map();
+		const mapIdToLabel = new Map();
+		categoryOptions.forEach((option) => {
+			if (option.value) {
+				mapLabelToId.set(option.value, option.dataset.id || "");
+				if (option.dataset.id) {
+					mapIdToLabel.set(option.dataset.id, option.value);
+				}
+			}
+		});
+		if (categoryIdInput.value && mapIdToLabel.has(categoryIdInput.value)) {
+			categoryInput.value = mapIdToLabel.get(categoryIdInput.value) || "";
+		}
+		categoryInput.addEventListener("input", () => {
+			categoryIdInput.value = mapLabelToId.get(categoryInput.value) || "";
+		});
+	}
+
+	const input = document.getElementById("images-files");
+	const list = document.getElementById("images-list");
+	const clearButton = document.getElementById("images-clear");
+	if (!input || !list || !clearButton) return;
+
+	let files = [];
+
+	const syncInput = () => {
+		if (typeof DataTransfer === "undefined") {
+			return;
+		}
+		const dt = new DataTransfer();
+		files.forEach((file) => dt.items.add(file));
+		input.files = dt.files;
+	};
+
+	const move = (fromIndex, toIndex) => {
+		if (toIndex < 0 || toIndex >= files.length) return;
+		const [item] = files.splice(fromIndex, 1);
+		files.splice(toIndex, 0, item);
+		syncInput();
+		render();
+	};
+
+	const removeAt = (index) => {
+		files.splice(index, 1);
+		syncInput();
+		render();
+	};
+
+	const render = () => {
+		list.innerHTML = "";
+		files.forEach((file, index) => {
+			const item = document.createElement("div");
+			item.className = "image-item";
+			item.draggable = true;
+			item.dataset.index = String(index);
+
+			const badge = document.createElement("span");
+			badge.className = "image-index";
+			badge.textContent = `#${index + 1}`;
+
+			const img = document.createElement("img");
+			const previewUrl = URL.createObjectURL(file);
+			img.src = previewUrl;
+			img.alt = file.name;
+			img.onload = () => URL.revokeObjectURL(previewUrl);
+
+			const actions = document.createElement("div");
+			actions.className = "image-actions";
+
+			const up = document.createElement("button");
+			up.type = "button";
+			up.textContent = "⬆";
+			up.disabled = index === 0;
+			up.addEventListener("click", () => move(index, index - 1));
+
+			const down = document.createElement("button");
+			down.type = "button";
+			down.textContent = "⬇";
+			down.disabled = index === files.length - 1;
+			down.addEventListener("click", () => move(index, index + 1));
+
+			const remove = document.createElement("button");
+			remove.type = "button";
+			remove.textContent = "✕";
+			remove.addEventListener("click", () => removeAt(index));
+
+			actions.append(up, down, remove);
+			item.append(badge, img, actions);
+
+			item.addEventListener("dragstart", (event) => {
+				event.dataTransfer?.setData("text/plain", String(index));
+				item.classList.add("dragging");
+			});
+			item.addEventListener("dragend", () => {
+				item.classList.remove("dragging");
+			});
+			item.addEventListener("dragover", (event) => {
+				event.preventDefault();
+				item.classList.add("drag-over");
+			});
+			item.addEventListener("dragleave", () => {
+				item.classList.remove("drag-over");
+			});
+			item.addEventListener("drop", (event) => {
+				event.preventDefault();
+				item.classList.remove("drag-over");
+				const from = Number(event.dataTransfer?.getData("text/plain"));
+				if (Number.isNaN(from)) return;
+				move(from, index);
+			});
+
+			list.append(item);
+		});
+	};
+
+	input.addEventListener("change", () => {
+		const selected = Array.from(input.files || []);
+		if (selected.length === 0) return;
+		files = files.concat(selected);
+		syncInput();
+		render();
+	});
+
+	clearButton.addEventListener("click", () => {
+		files = [];
+		syncInput();
+		render();
+	});
+})();
+</script>
 {% endblock %}

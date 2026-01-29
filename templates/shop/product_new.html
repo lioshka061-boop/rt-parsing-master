@@ -36,8 +36,19 @@
 .image-actions button:disabled { opacity:0.4; cursor:default; }
 .image-item.drag-over { border-color:#2563eb; box-shadow:0 0 0 1px #2563eb inset; }
 .image-item.dragging { opacity:0.6; }
+.image-links { display:flex; flex-direction:column; gap:8px; }
+.image-link-list { display:flex; flex-direction:column; gap:8px; }
+.image-link-row { display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:center; }
+.image-link-index { width:28px; height:28px; border-radius:8px; border:1px solid #1f2937; background:#111827; color:#e5e7eb; display:flex; align-items:center; justify-content:center; font-size:12px; }
+.image-link-input { width:100%; border-radius:12px; border:1px solid #1f2937; background:#0b1220; color:#e5e7eb; padding:10px 12px; }
+.image-link-add { border:1px solid #1f2937; background:#0b1220; color:#e5e7eb; border-radius:10px; padding:6px 10px; cursor:pointer; }
+.image-link-remove { border:1px solid #1f2937; background:#111827; color:#9ca3af; border-radius:10px; padding:6px 10px; cursor:pointer; }
+.lang-grid { grid-column: 1 / -1; display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:12px; }
+.lang-col { display:grid; gap:12px; align-content:start; }
+.lang-title { font-size:12px; text-transform:uppercase; color:#9ca3af; letter-spacing:0.08em; }
 @media(max-width: 960px){
 	.product-new { grid-template-columns: 1fr; }
+	.lang-grid { grid-template-columns: 1fr; }
 }
 </style>
 {% endblock %}
@@ -52,15 +63,33 @@
 	<div style="grid-column:1/-1; display:flex; gap:8px; align-items:center;">
 		<span class="pill" style="background:#0b1220; border:1px solid #1f2937; padding:6px 10px; border-radius:10px;">Публікується на сайт і пром</span>
 	</div>
-	<div>
-		<label>Назва (RU) *</label>
-		<input type="text" name="title" required>
-		<div class="ghost" style="font-size:12px;">Використовується для Prom.</div>
-	</div>
-	<div>
-		<label>Назва (UA) *</label>
-		<input type="text" name="title_ua" required>
-		<div class="hint">Використовується на сайті.</div>
+	<div class="lang-grid">
+		<div class="lang-col">
+			<div class="lang-title">UA</div>
+			<div>
+				<label>Назва (UA) *</label>
+				<input type="text" name="title_ua" required>
+				<div class="hint">Використовується на сайті.</div>
+			</div>
+			<div>
+				<label>Опис (UA, HTML дозволено) *</label>
+				<textarea name="description_ua" required></textarea>
+				<div class="hint">Використовується на сайті.</div>
+			</div>
+		</div>
+		<div class="lang-col">
+			<div class="lang-title">RU</div>
+			<div>
+				<label>Назва (RU) *</label>
+				<input type="text" name="title" required>
+				<div class="ghost" style="font-size:12px;">Використовується для Prom.</div>
+			</div>
+			<div>
+				<label>Опис (RU, HTML дозволено) *</label>
+				<textarea name="description" required></textarea>
+				<div class="ghost" style="font-size:12px;">Використовується для Prom.</div>
+			</div>
+		</div>
 	</div>
 	<div>
 		<label>Артикул (порожньо — генеруємо)</label>
@@ -109,9 +138,13 @@
 		<input type="number" min="0" step="1" name="price">
 	</div>
 	<div>
-		<label>Фото (одне посилання в рядку)</label>
-		<textarea name="images" id="images-textarea" placeholder="https://..."></textarea>
-		<div class="hint">Кожне посилання з нового рядка. Коми також будуть перетворені в рядки.</div>
+		<label>Фото (посилання)</label>
+		<input type="hidden" name="images" id="images-hidden">
+		<div class="image-links">
+			<div class="image-link-list" id="image-link-list"></div>
+			<button type="button" class="image-link-add" id="image-link-add">+ Додати фото</button>
+			<div class="hint">Кожне посилання — окреме поле. Додавайте поля кнопкою “+”.</div>
+		</div>
 	</div>
 	<div class="image-upload">
 		<label>Фото з ПК</label>
@@ -121,16 +154,6 @@
 		</div>
 		<div class="hint">Після вибору фото можна змінювати порядок (drag або кнопками).</div>
 		<div class="image-list" id="images-list" aria-live="polite"></div>
-	</div>
-	<div style="grid-column:1/-1;">
-		<label>Опис (RU, HTML дозволено) *</label>
-		<textarea name="description" required></textarea>
-		<div class="ghost" style="font-size:12px;">Використовується для Prom.</div>
-	</div>
-	<div style="grid-column:1/-1;">
-		<label>Опис (UA, HTML дозволено) *</label>
-		<textarea name="description_ua" required></textarea>
-		<div class="hint">Використовується на сайті.</div>
 	</div>
 	<div style="grid-column:1/-1;">
 		<label>Доп продажі (артикули через кому)</label>
@@ -160,24 +183,58 @@
 		toggleDelivery();
 	}
 
-	const imagesTextarea = document.getElementById("images-textarea");
-	if (imagesTextarea) {
-		const normalizeImages = () => {
-			const value = imagesTextarea.value
-				.replace(/\r\n/g, "\n")
-				.replace(/[,\t]+/g, "\n")
-				.replace(/\n{2,}/g, "\n");
-			imagesTextarea.value = value;
+	const imageLinksList = document.getElementById("image-link-list");
+	const imageLinksAdd = document.getElementById("image-link-add");
+	const imageLinksHidden = document.getElementById("images-hidden");
+	if (imageLinksList && imageLinksAdd && imageLinksHidden) {
+		const syncHidden = () => {
+			const values = Array.from(imageLinksList.querySelectorAll("input"))
+				.map((input) => input.value.trim())
+				.filter((value) => value.length > 0);
+			imageLinksHidden.value = values.join("\n");
 		};
-		imagesTextarea.addEventListener("paste", () => {
-			setTimeout(normalizeImages, 0);
-		});
-		imagesTextarea.addEventListener("blur", () => {
-			normalizeImages();
-			if (imagesTextarea.value && !imagesTextarea.value.endsWith("\n")) {
-				imagesTextarea.value += "\n";
+		const updateIndexes = () => {
+			imageLinksList.querySelectorAll(".image-link-row").forEach((row, idx) => {
+				const label = row.querySelector(".image-link-index");
+				if (label) label.textContent = String(idx + 1);
+			});
+		};
+		const addRow = (value = "") => {
+			const row = document.createElement("div");
+			row.className = "image-link-row";
+			row.innerHTML = `
+				<span class="image-link-index">1</span>
+				<input type="url" class="image-link-input" placeholder="https://..." />
+				<button type="button" class="image-link-remove" title="Видалити">✕</button>
+			`;
+			const input = row.querySelector("input");
+			const removeBtn = row.querySelector(".image-link-remove");
+			if (input) {
+				input.value = value;
+				input.addEventListener("input", syncHidden);
+				input.addEventListener("keydown", (event) => {
+					if (event.key === "Enter") {
+						event.preventDefault();
+						const nextRow = addRow("");
+						const nextInput = nextRow.querySelector("input");
+						if (nextInput) nextInput.focus();
+					}
+				});
 			}
-		});
+			if (removeBtn) {
+				removeBtn.addEventListener("click", () => {
+					row.remove();
+					updateIndexes();
+					syncHidden();
+				});
+			}
+			imageLinksList.appendChild(row);
+			updateIndexes();
+			syncHidden();
+			return row;
+		};
+		imageLinksAdd.addEventListener("click", () => addRow(""));
+		addRow("");
 	}
 
 	const categoryInput = document.getElementById("category-input");
