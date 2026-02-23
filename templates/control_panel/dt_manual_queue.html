@@ -1,0 +1,59 @@
+{% extends "control_panel/base.html" %}
+{% block head %}
+{% let page = "parsing" %}
+<link rel="stylesheet" href="/static/menu.css" />
+{% endblock %}
+
+{% block title %}DT ручна черга{% endblock %}
+
+{% block content %}
+<h1>DT ручна черга</h1>
+
+{% if let Some(msg) = message %}
+<div style="margin: 12px 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel);">
+    {{ msg }}
+</div>
+{% endif %}
+
+<form method="post" action="/control_panel/dt/manual/add" style="display:flex; gap:10px; align-items:center; margin: 12px 0;">
+    <input type="text" name="link" placeholder="Посилання на товар design-tuning" style="flex:1; min-width:260px;">
+    <button type="submit" class="button">Додати</button>
+</form>
+
+<p>Всього: {{ entries.len() }}</p>
+
+<div style="overflow:auto; border:1px solid var(--border); border-radius:12px;">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>URL</th>
+                <th>Додано</th>
+                <th>Статус</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for e in entries %}
+            <tr>
+                <td>{{ e.id }}</td>
+                <td><a href="{{ e.url }}" target="_blank">{{ e.url }}</a></td>
+                <td>{{ e.added_at }}</td>
+                <td>{% if e.enabled %}активна{% else %}вимкнена{% endif %}</td>
+                <td>
+                    <form method="post" action="/control_panel/dt/manual/remove" onsubmit="return confirm('Видалити посилання з черги?');">
+                        <input type="hidden" name="id" value="{{ e.id }}">
+                        <button type="submit" class="button">Видалити</button>
+                    </form>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if entries.is_empty() %}
+<p>Черга порожня.</p>
+{% endif %}
+
+{% endblock %}

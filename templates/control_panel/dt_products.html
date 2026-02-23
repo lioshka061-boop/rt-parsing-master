@@ -9,6 +9,17 @@
 {% block content %}
 <h1>DT товари (design-tuning)</h1>
 
+{% if let Some(msg) = cleanup_message %}
+<div style="margin: 12px 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel);">
+    {{ msg }}
+</div>
+{% endif %}
+{% if let Some(msg) = cleanup_status_message %}
+<div style="margin: 12px 0; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 10px; background: var(--panel); opacity: .9;">
+    {{ msg }}
+</div>
+{% endif %}
+
 <form method="get" style="margin: 12px 0; display:flex; gap:10px; align-items:center;">
     <label>Показати, якщо не обходились більше ніж (днів):
         <input type="number" name="stale_days" min="1" step="1" value="{% if let Some(d) = stale_days %}{{ d }}{% endif %}" style="width:90px;">
@@ -27,6 +38,17 @@
     <button type="submit" class="button">Фільтрувати</button>
     <a href="/control_panel/dt/products" class="button" style="text-decoration:none;">Скинути</a>
 </form>
+
+<form method="post" action="/control_panel/dt/cleanup" style="margin: 10px 0;"
+      onsubmit="return confirm('Запустити одноразове очищення DT? Перед цим дочекайтесь завершення парсингу. Буде видалено товари, яких немає на сайті.');">
+    <button type="submit" class="button" style="background:#7d2b2b; color:#fff;">
+        Запустити очищення (видалити відсутні)
+    </button>
+    <span style="margin-left:10px; opacity:.8;">Рекомендується запускати лише після повного обходу.</span>
+</form>
+<div style="margin: 8px 0;">
+    <a class="button" href="/control_panel/dt/manual">DT ручна черга</a>
+</div>
 
 <p>Знайдено: {{ total }}</p>
 

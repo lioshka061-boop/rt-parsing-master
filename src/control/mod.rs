@@ -15,6 +15,8 @@ use crate::ddaudio;
 use crate::ddaudio_import;
 use crate::watermark::WatermarkOptionsDto;
 use crate::{dt, tt};
+use crate::dt::manual_queue::ManualUrlRepository;
+use crate::dt::manual_queue::{ManualUrlEntry, ManualUrlRepo};
 use actix::fut::{ready, Ready};
 use actix::prelude::*;
 use actix_files::NamedFile;
@@ -30,6 +32,8 @@ use actix_web::{
 };
 use anyhow::{anyhow, Context};
 use askama::Template;
+use calamine::{open_workbook_auto, DataType, Reader};
+use csv::ReaderBuilder;
 use derive_more::{Display, Error};
 use futures::future::LocalBoxFuture;
 use log_error::LogError;
@@ -61,7 +65,7 @@ use std::borrow::Borrow;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::ffi::CString;
 use std::future::Future;
-use std::io::BufReader;
+use std::io::{BufReader, Read};
 use std::os::unix::ffi::OsStrExt;
 use std::ops::Deref;
 use std::os::unix::fs::PermissionsExt;
@@ -777,6 +781,24 @@ pub struct DtProductsPage {
     next_page: Option<String>,
     user: UserCredentials,
     sort: String,
+    cleanup_message: Option<String>,
+    cleanup_status_message: Option<String>,
+}
+
+#[derive(Template)]
+#[template(path = "control_panel/dt_manual_queue.html")]
+pub struct DtManualQueuePage {
+    entries: Vec<DtManualQueueRow>,
+    user: UserCredentials,
+    message: Option<String>,
+}
+
+#[derive(Clone)]
+pub struct DtManualQueueRow {
+    id: i64,
+    url: String,
+    added_at: String,
+    enabled: bool,
 }
 
 #[derive(Clone)]
@@ -795,6 +817,23 @@ pub struct DtProductsQuery {
     page: Option<usize>,
     per_page: Option<usize>,
     sort: Option<String>,
+    cleanup: Option<String>,
+    count: Option<usize>,
+}
+
+#[derive(Deserialize)]
+pub struct DtManualQueueQuery {
+    status: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct DtManualQueueAddForm {
+    link: String,
+}
+
+#[derive(Deserialize)]
+pub struct DtManualQueueRemoveForm {
+    id: i64,
 }
 
 #[get("/control_panel/parsing")]
@@ -824,6 +863,7 @@ async fn parsing(
 #[get("/control_panel/dt/products")]
 async fn control_panel_dt_products(
     dt_repo: Data<Arc<dyn dt::product::ProductRepository + Send>>,
+    dt_parser: Data<Arc<Addr<dt::parser::ParserService>>>,
     ControlPanelAccess { user }: ControlPanelAccess,
     query: Query<DtProductsQuery>,
 ) -> Response {
@@ -832,6 +872,48 @@ async fn control_panel_dt_products(
     let page = params.page.unwrap_or(1).max(1);
     let stale_days = params.stale_days.filter(|d| *d > 0);
     let sort = params.sort.clone().unwrap_or_else(|| "oldest".to_string());
+    let cleanup_message = match params.cleanup.as_deref() {
+        Some("done") => Some(format!(
+            "Очистка завершена. Видалено {} товарів.",
+            params.count.unwrap_or(0)
+        )),
+        Some("started") => Some("Очистку запущено. Це може зайняти час.".to_string()),
+        Some("busy") => Some("Очистка недоступна: парсинг зараз працює.".to_string()),
+        Some("error") => Some("Помилка запуску очистки. Перевірте логи.".to_string()),
+        _ => None,
+    };
+    let cleanup_status_message = match dt_parser
+        .send(dt::parser::GetCleanupStatus)
+        .await
+        .ok()
+    {
+        Some(info) => match info.state.as_str() {
+            "running" => {
+                let started = info
+                    .started_at
+                    .as_deref()
+                    .unwrap_or("невідомо")
+                    .to_string();
+                Some(format!("Очистка виконується. Старт: {started}."))
+            }
+            "done" => {
+                let removed = info.removed.unwrap_or(0);
+                let finished = info
+                    .finished_at
+                    .as_deref()
+                    .unwrap_or("невідомо");
+                Some(format!(
+                    "Очистка завершена: видалено {removed}. Фініш: {finished}."
+                ))
+            }
+            "error" => {
+                let error = info.error.unwrap_or_else(|| "Невідома помилка".to_string());
+                Some(format!("Помилка очистки: {error}"))
+            }
+            _ => None,
+        },
+        None => None,
+    };
     let now = OffsetDateTime::now_utc();
 
     let mut products = dt_repo.list().await?;
@@ -908,7 +990,114 @@ async fn control_panel_dt_products(
         next_page,
         user,
         sort,
+        cleanup_message,
+        cleanup_status_message,
     })
+}
+
+#[post("/control_panel/dt/cleanup")]
+async fn control_panel_dt_cleanup(
+    dt_parser: Data<Arc<Addr<dt::parser::ParserService>>>,
+    ControlPanelAccess { .. }: ControlPanelAccess,
+) -> Response {
+    let progress = dt_parser.send(dt::parser::GetProgress).await;
+    let redirect = match progress {
+        Ok(Ok(progress)) => {
+            if !matches!(progress.stage, dt::parser::ParsingStage::Pause) {
+                "/control_panel/dt/products?cleanup=busy".to_string()
+            } else {
+                dt_parser.do_send(dt::parser::CleanupMissing);
+                "/control_panel/dt/products?cleanup=started".to_string()
+            }
+        }
+        _ => "/control_panel/dt/products?cleanup=error".to_string(),
+    };
+    Ok(see_other(&redirect))
+}
+
+#[get("/control_panel/dt/cleanup")]
+async fn control_panel_dt_cleanup_get(
+    dt_parser: Data<Arc<Addr<dt::parser::ParserService>>>,
+    ControlPanelAccess { .. }: ControlPanelAccess,
+) -> Response {
+    let progress = dt_parser.send(dt::parser::GetProgress).await;
+    let redirect = match progress {
+        Ok(Ok(progress)) => {
+            if !matches!(progress.stage, dt::parser::ParsingStage::Pause) {
+                "/control_panel/dt/products?cleanup=busy".to_string()
+            } else {
+                dt_parser.do_send(dt::parser::CleanupMissing);
+                "/control_panel/dt/products?cleanup=started".to_string()
+            }
+        }
+        _ => "/control_panel/dt/products?cleanup=error".to_string(),
+    };
+    Ok(see_other(&redirect))
+}
+
+#[get("/control_panel/dt/manual")]
+async fn control_panel_dt_manual_queue(
+    manual_repo: Data<ManualUrlRepo>,
+    ControlPanelAccess { user }: ControlPanelAccess,
+    query: Query<DtManualQueueQuery>,
+) -> Response {
+    let entries = manual_repo
+        .list()
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|item| DtManualQueueRow {
+            id: item.id,
+            url: item.url,
+            added_at: item
+                .added_at
+                .format(&time::format_description::well_known::Rfc3339)
+                .unwrap_or_else(|_| "—".to_string()),
+            enabled: item.enabled,
+        })
+        .collect::<Vec<_>>();
+
+    let message = match query.status.as_deref() {
+        Some("added") => Some("Посилання додано до черги.".to_string()),
+        Some("exists") => Some("Посилання вже є в черзі.".to_string()),
+        Some("invalid") => Some("Посилання порожнє або некоректне.".to_string()),
+        Some("removed") => Some("Посилання видалено з черги.".to_string()),
+        _ => None,
+    };
+
+    render_template(DtManualQueuePage {
+        entries,
+        user,
+        message,
+    })
+}
+
+#[post("/control_panel/dt/manual/add")]
+async fn control_panel_dt_manual_add(
+    manual_repo: Data<ManualUrlRepo>,
+    ControlPanelAccess { .. }: ControlPanelAccess,
+    form: Form<DtManualQueueAddForm>,
+) -> Response {
+    let link = normalize_dt_link(&form.link);
+    let redirect = match link {
+        Some(link) => match manual_repo.add(&link).await {
+            Ok(true) => "/control_panel/dt/manual?status=added".to_string(),
+            Ok(false) => "/control_panel/dt/manual?status=exists".to_string(),
+            Err(_) => "/control_panel/dt/manual?status=invalid".to_string(),
+        },
+        None => "/control_panel/dt/manual?status=invalid".to_string(),
+    };
+    Ok(see_other(&redirect))
+}
+
+#[post("/control_panel/dt/manual/remove")]
+async fn control_panel_dt_manual_remove(
+    manual_repo: Data<ManualUrlRepo>,
+    ControlPanelAccess { .. }: ControlPanelAccess,
+    form: Form<DtManualQueueRemoveForm>,
+) -> Response {
+    let _ = manual_repo.remove(form.id).await;
+    Ok(see_other("/control_panel/dt/manual?status=removed"))
 }
 
 #[derive(Template)]
@@ -921,6 +1110,7 @@ pub struct ShopProductsPage {
     supplier_filter: String,
     missing_filter: String,
     review_filter: String,
+    import_message: Option<String>,
     page: usize,
     per_page: usize,
     total_items: usize,
@@ -1244,6 +1434,93 @@ fn parse_usize_param(value: Option<&str>) -> Option<usize> {
         .and_then(|v| v.parse::<usize>().ok())
 }
 
+fn parse_number(value: &str) -> Option<usize> {
+    let digits: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
+    if digits.is_empty() {
+        None
+    } else {
+        digits.parse::<usize>().ok()
+    }
+}
+
+fn split_image_links(value: &str) -> Vec<String> {
+    value
+        .split(|ch| ch == ',' || ch == '\n' || ch == ';' || ch == '\r')
+        .map(|v| v.trim())
+        .filter(|v| !v.is_empty())
+        .map(|v| v.to_string())
+        .collect()
+}
+
+fn slugify_for_url(value: &str, fallback: &str) -> String {
+    let lowered = value.to_lowercase();
+    let mut out = String::with_capacity(lowered.len());
+    for ch in lowered.chars() {
+        if ch.is_ascii_alphanumeric() {
+            out.push(ch);
+        } else {
+            out.push('-');
+        }
+    }
+    let out = Regex::new(r"-+")
+        .ok()
+        .map(|re| re.replace_all(&out, "-").to_string())
+        .unwrap_or(out);
+    let trimmed = out.trim_matches('-');
+    if trimmed.is_empty() {
+        fallback.to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn parse_availability(value: &str) -> Availability {
+    let lowered = value.trim().to_lowercase();
+    if lowered.is_empty() {
+        return Availability::NotAvailable;
+    }
+    if lowered.contains("в наяв") || lowered.contains("в наличии") || lowered == "+" {
+        Availability::Available
+    } else if lowered.contains("под заказ") || lowered.contains("під замовлення") {
+        Availability::OnOrder
+    } else if lowered.contains("нет") || lowered.contains("немає") {
+        Availability::NotAvailable
+    } else {
+        Availability::OnOrder
+    }
+}
+
+fn normalize_dt_link(raw: &str) -> Option<String> {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    let without_domain = if let Some(pos) = raw.find("://") {
+        let rest = &raw[pos + 3..];
+        match rest.find('/') {
+            Some(idx) => &rest[idx..],
+            None => "",
+        }
+    } else {
+        raw
+    };
+    let without_fragment = match without_domain.find('#') {
+        Some(idx) => &without_domain[..idx],
+        None => without_domain,
+    };
+    let without_query = match without_fragment.find('?') {
+        Some(idx) => &without_fragment[..idx],
+        None => without_fragment,
+    };
+    if without_query.is_empty() {
+        None
+    } else if without_query.starts_with('/') {
+        Some(without_query.to_string())
+    } else {
+        Some(format!("/{without_query}"))
+    }
+}
+
 #[derive(Template)]
 #[template(path = "shop/product_new.html")]
 pub struct ShopProductNewPage {
@@ -1261,6 +1538,12 @@ pub struct ShopProductsQuery {
     pub review: Option<String>,
     pub page: Option<String>,
     pub per_page: Option<String>,
+    #[serde(rename = "import")]
+    pub import_status: Option<String>,
+    pub imported: Option<String>,
+    pub updated: Option<String>,
+    pub skipped: Option<String>,
+    pub errors: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -1293,6 +1576,26 @@ async fn shop_products(
     category_repo: Data<Arc<dyn CategoryRepository>>,
     product_category_repo: Data<Arc<dyn product_category::ProductCategoryRepository>>,
 ) -> Response {
+    let parse_count = |value: &Option<String>| -> usize {
+        value
+            .as_deref()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(0)
+    };
+    let import_message = match params.import_status.as_deref() {
+        Some("done") => {
+            let imported = parse_count(&params.imported);
+            let updated = parse_count(&params.updated);
+            let skipped = parse_count(&params.skipped);
+            let errors = parse_count(&params.errors);
+            Some(format!(
+                "Імпорт завершено: додано {imported}, оновлено {updated}, пропущено {skipped}, помилки {errors}."
+            ))
+        }
+        Some("error") => Some("Помилка імпорту. Перевірте файл і логи.".to_string()),
+        _ => None,
+    };
+
     let per_page = parse_usize_param(params.per_page.as_deref())
         .filter(|v| matches!(*v, 25 | 50 | 75 | 100))
         .unwrap_or(25);
@@ -1637,6 +1940,7 @@ async fn shop_products(
         supplier_filter: params.supplier.clone().unwrap_or_default(),
         missing_filter: missing_filter.clone(),
         review_filter: review_filter.clone(),
+        import_message,
         page,
         per_page,
         total_items,
@@ -1644,6 +1948,415 @@ async fn shop_products(
         bulk_suppliers,
         bulk_categories,
     })
+}
+
+#[derive(MultipartForm, Debug)]
+pub struct ImportPromProductsForm {
+    file: TempFile,
+}
+
+#[post("/shop/{shop_id}/products/import_prom")]
+async fn shop_products_import_prom(
+    ShopAccess { shop, .. }: ShopAccess,
+    q: MultipartForm<ImportPromProductsForm>,
+    dt_repo: Data<Arc<dyn dt::product::ProductRepository + Send>>,
+    shop_product_repo: Data<Arc<dyn shop_product::ShopProductRepository>>,
+) -> Response {
+    let q = q.into_inner();
+    let path = q.file.file.path().to_path_buf();
+    let is_xlsx = match std::fs::File::open(&path) {
+        Ok(mut f) => {
+            let mut sig = [0u8; 2];
+            if f.read_exact(&mut sig).is_ok() {
+                sig == [b'P', b'K']
+            } else {
+                false
+            }
+        }
+        Err(_) => false,
+    };
+
+    let normalize_header = |raw: &str| raw.trim_start_matches('\u{feff}').trim().to_string();
+
+    struct ImportRow {
+        article: String,
+        title: String,
+        title_ua: String,
+        description: Option<String>,
+        description_ua: Option<String>,
+        price: Option<usize>,
+        images: Vec<String>,
+        available: Availability,
+        quantity: Option<usize>,
+        delivery_days: Option<usize>,
+        brand: String,
+        category: Option<String>,
+    }
+
+    let build_row = |get: &dyn Fn(Option<usize>) -> String,
+                     idx_article: Option<usize>,
+                     idx_title_ru: Option<usize>,
+                     idx_title_ua: Option<usize>,
+                     idx_desc_ru: Option<usize>,
+                     idx_desc_ua: Option<usize>,
+                     idx_price: Option<usize>,
+                     idx_images: Option<usize>,
+                     idx_available: Option<usize>,
+                     idx_quantity: Option<usize>,
+                     idx_delivery: Option<usize>,
+                     idx_brand: Option<usize>,
+                     idx_group: Option<usize>| {
+        let article = get(idx_article);
+        if article.is_empty() {
+            return None;
+        }
+        let title_ru = get(idx_title_ru);
+        let title_ua = get(idx_title_ua);
+        let title = if !title_ru.is_empty() {
+            title_ru.clone()
+        } else if !title_ua.is_empty() {
+            title_ua.clone()
+        } else {
+            article.clone()
+        };
+        let description = normalize_string(Some(get(idx_desc_ru)));
+        let description_ua = normalize_string(Some(get(idx_desc_ua)));
+        let price = parse_number(&get(idx_price));
+        let images = split_image_links(&get(idx_images));
+        let available = parse_availability(&get(idx_available));
+        let quantity = parse_number(&get(idx_quantity));
+        let delivery_days = parse_number(&get(idx_delivery));
+        let brand = {
+            let raw = get(idx_brand);
+            if raw.is_empty() {
+                "O&P Tuning".to_string()
+            } else {
+                raw
+            }
+        };
+        let category = {
+            let raw = get(idx_group);
+            if raw.is_empty() {
+                None
+            } else {
+                Some(raw)
+            }
+        };
+        Some(ImportRow {
+            article,
+            title,
+            title_ua,
+            description,
+            description_ua,
+            price,
+            images,
+            available,
+            quantity,
+            delivery_days,
+            brand,
+            category,
+        })
+    };
+
+    let mut imported = 0usize;
+    let mut updated = 0usize;
+    let mut skipped = 0usize;
+    let mut errors = 0usize;
+
+    if is_xlsx {
+        let mut workbook = match open_workbook_auto(&path) {
+            Ok(w) => w,
+            Err(_) => {
+                return Ok(see_other(&format!(
+                    "/shop/{}/products?import=error",
+                    shop.id
+                )))
+            }
+        };
+        let sheet_name = match workbook.sheet_names().get(0).cloned() {
+            Some(name) => name,
+            None => {
+                return Ok(see_other(&format!(
+                    "/shop/{}/products?import=error",
+                    shop.id
+                )))
+            }
+        };
+        let range = match workbook.worksheet_range(&sheet_name) {
+            Ok(r) => r,
+            Err(_) => {
+                return Ok(see_other(&format!(
+                    "/shop/{}/products?import=error",
+                    shop.id
+                )))
+            }
+        };
+        let mut rows = range.rows();
+        let header_row = match rows.next() {
+            Some(r) => r,
+            None => {
+                return Ok(see_other(&format!(
+                    "/shop/{}/products?import=error",
+                    shop.id
+                )))
+            }
+        };
+        let headers = header_row
+            .iter()
+            .map(|c| match c {
+                DataType::String(s) => normalize_header(&s),
+                DataType::Empty => String::new(),
+                _ => normalize_header(&c.to_string()),
+            })
+            .collect::<Vec<_>>();
+        let header_index = |name: &str| headers.iter().position(|h| h == name);
+        let idx_article = header_index("Код_товару");
+        let idx_title_ru = header_index("Назва_позиції");
+        let idx_title_ua = header_index("Назва_позиції_укр");
+        let idx_desc_ru = header_index("Опис");
+        let idx_desc_ua = header_index("Опис_укр");
+        let idx_price = header_index("Ціна");
+        let idx_images = header_index("Посилання_зображення");
+        let idx_available = header_index("Наявність");
+        let idx_quantity = header_index("Кількість");
+        let idx_delivery = header_index("Термін_поставки");
+        let idx_brand = header_index("Виробник");
+        let idx_group = header_index("Назва_групи");
+
+        for row in rows {
+            let get = |idx: Option<usize>| {
+                idx.and_then(|i| row.get(i))
+                    .map(|c| match c {
+                        DataType::String(s) => s.trim().to_string(),
+                        DataType::Empty => String::new(),
+                        _ => c.to_string().trim().to_string(),
+                    })
+                    .unwrap_or_default()
+            };
+            let row = match build_row(
+                &get,
+                idx_article,
+                idx_title_ru,
+                idx_title_ua,
+                idx_desc_ru,
+                idx_desc_ua,
+                idx_price,
+                idx_images,
+                idx_available,
+                idx_quantity,
+                idx_delivery,
+                idx_brand,
+                idx_group,
+            ) {
+                Some(r) => r,
+                None => {
+                    skipped += 1;
+                    continue;
+                }
+            };
+
+            let slug = slugify_for_url(&row.title, &row.article);
+            let url = crate::Url(format!("/manual/op-tuning/{}", slug));
+            let mut attrs = HashMap::new();
+            if matches!(row.available, Availability::OnOrder) {
+                if let Some(days) = row.delivery_days {
+                    attrs.insert("delivery_days".to_string(), days.to_string());
+                }
+            }
+            let existing = dt_repo
+                .get_one(&row.article)
+                .await
+                .unwrap_or_default();
+            let now = OffsetDateTime::now_utc();
+            let product = dt::product::Product {
+                title: row.title,
+                description: row.description,
+                title_ua: normalize_string(Some(row.title_ua)),
+                description_ua: row.description_ua,
+                price: row.price,
+                source_price: row.price,
+                article: row.article.clone(),
+                brand: row.brand,
+                model: crate::Model("Універсальна".to_string()),
+                category: row.category,
+                attributes: if attrs.is_empty() { None } else { Some(attrs) },
+                available: row.available,
+                quantity: row.quantity,
+                url,
+                supplier: Some("op_tuning".to_string()),
+                discount_percent: None,
+                last_visited: now,
+                images: row.images,
+                upsell: None,
+            };
+            if dt_repo.save(product).await.is_err() {
+                errors += 1;
+                continue;
+            }
+            if shop_product_repo
+                .ensure_exists(shop.id, &row.article)
+                .await
+                .is_err()
+            {
+                errors += 1;
+                continue;
+            }
+            if existing.is_some() {
+                updated += 1;
+            } else {
+                imported += 1;
+            }
+        }
+    } else {
+        let mut sample = String::new();
+        if let Ok(mut f) = std::fs::File::open(&path) {
+            let mut buf = [0u8; 4096];
+            if let Ok(n) = f.read(&mut buf) {
+                sample = String::from_utf8_lossy(&buf[..n]).to_string();
+            }
+        }
+        let delimiter = if sample.contains('\t') {
+            b'\t'
+        } else if sample.contains(';') {
+            b';'
+        } else {
+            b','
+        };
+        let file = match std::fs::File::open(&path) {
+            Ok(f) => f,
+            Err(_) => {
+                return Ok(see_other(&format!(
+                    "/shop/{}/products?import=error",
+                    shop.id
+                )))
+            }
+        };
+        let mut reader = ReaderBuilder::new()
+            .delimiter(delimiter)
+            .has_headers(true)
+            .flexible(true)
+            .from_reader(BufReader::new(file));
+
+        let headers = match reader.headers() {
+            Ok(h) => h
+                .iter()
+                .map(|h| normalize_header(h))
+                .collect::<Vec<_>>(),
+            Err(_) => {
+                return Ok(see_other(&format!(
+                    "/shop/{}/products?import=error",
+                    shop.id
+                )))
+            }
+        };
+        let header_index = |name: &str| headers.iter().position(|h| h == name);
+        let idx_article = header_index("Код_товару");
+        let idx_title_ru = header_index("Назва_позиції");
+        let idx_title_ua = header_index("Назва_позиції_укр");
+        let idx_desc_ru = header_index("Опис");
+        let idx_desc_ua = header_index("Опис_укр");
+        let idx_price = header_index("Ціна");
+        let idx_images = header_index("Посилання_зображення");
+        let idx_available = header_index("Наявність");
+        let idx_quantity = header_index("Кількість");
+        let idx_delivery = header_index("Термін_поставки");
+        let idx_brand = header_index("Виробник");
+        let idx_group = header_index("Назва_групи");
+
+        for result in reader.records() {
+            let record = match result {
+                Ok(r) => r,
+                Err(_) => {
+                    errors += 1;
+                    continue;
+                }
+            };
+            let get = |idx: Option<usize>| {
+                idx.and_then(|i| record.get(i))
+                    .unwrap_or("")
+                    .trim()
+                    .to_string()
+            };
+            let row = match build_row(
+                &get,
+                idx_article,
+                idx_title_ru,
+                idx_title_ua,
+                idx_desc_ru,
+                idx_desc_ua,
+                idx_price,
+                idx_images,
+                idx_available,
+                idx_quantity,
+                idx_delivery,
+                idx_brand,
+                idx_group,
+            ) {
+                Some(r) => r,
+                None => {
+                    skipped += 1;
+                    continue;
+                }
+            };
+
+            let slug = slugify_for_url(&row.title, &row.article);
+            let url = crate::Url(format!("/manual/op-tuning/{}", slug));
+            let mut attrs = HashMap::new();
+            if matches!(row.available, Availability::OnOrder) {
+                if let Some(days) = row.delivery_days {
+                    attrs.insert("delivery_days".to_string(), days.to_string());
+                }
+            }
+            let existing = dt_repo
+                .get_one(&row.article)
+                .await
+                .unwrap_or_default();
+            let now = OffsetDateTime::now_utc();
+            let product = dt::product::Product {
+                title: row.title,
+                description: row.description,
+                title_ua: normalize_string(Some(row.title_ua)),
+                description_ua: row.description_ua,
+                price: row.price,
+                source_price: row.price,
+                article: row.article.clone(),
+                brand: row.brand,
+                model: crate::Model("Універсальна".to_string()),
+                category: row.category,
+                attributes: if attrs.is_empty() { None } else { Some(attrs) },
+                available: row.available,
+                quantity: row.quantity,
+                url,
+                supplier: Some("op_tuning".to_string()),
+                discount_percent: None,
+                last_visited: now,
+                images: row.images,
+                upsell: None,
+            };
+            if dt_repo.save(product).await.is_err() {
+                errors += 1;
+                continue;
+            }
+            if shop_product_repo
+                .ensure_exists(shop.id, &row.article)
+                .await
+                .is_err()
+            {
+                errors += 1;
+                continue;
+            }
+            if existing.is_some() {
+                updated += 1;
+            } else {
+                imported += 1;
+            }
+        }
+    }
+
+    Ok(see_other(&format!(
+        "/shop/{}/products?import=done&imported={}&updated={}&skipped={}&errors={}",
+        shop.id, imported, updated, skipped, errors
+    )))
 }
 
 #[get("/shop/{shop_id}/crm")]

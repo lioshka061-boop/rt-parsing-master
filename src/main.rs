@@ -96,6 +96,9 @@ async fn main() -> Result<(), anyhow::Error> {
     let conn_dt_export = Connection::open("storage/storage_dt.db").await?;
     let dt_repo_export: Arc<dyn dt::product::ProductRepository + Send> =
         Arc::new(dt::product::SqliteProductRepository::init(conn_dt_export).await?);
+    let conn_dt_manual = Connection::open("storage/storage_dt.db").await?;
+    let manual_repo: Arc<dyn dt::manual_queue::ManualUrlRepository> =
+        Arc::new(dt::manual_queue::SqliteManualUrlRepository::init(conn_dt_manual).await?);
 
     let conn = Connection::open("storage/storage_tt.db").await?;
     let tt_repo: Arc<dyn tt::product::ProductRepository + Send> =
@@ -368,6 +371,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let options = ParsingOptions::new(
         "http://design-tuning.com".to_string(),
         dt_repo_parser.clone(),
+        manual_repo.clone(),
         client.clone(),
         None,
         dt_parallel_downloads(),
@@ -422,6 +426,7 @@ async fn main() -> Result<(), anyhow::Error> {
         let mut app = App::new()
             .app_data(FormConfig::default().limit(256 * 1024))
             .app_data(MultipartFormConfig::default().total_limit(20 * 1024 * 1024))
+            .app_data(Data::new(manual_repo.clone()))
             .wrap(
                 DefaultHeaders::new()
                     .add(("Access-Control-Allow-Origin", "*"))
@@ -518,6 +523,12 @@ async fn main() -> Result<(), anyhow::Error> {
             .service(shop::controllers::shop_suspend_toggle)
             .service(control::parsing)
             .service(control::control_panel_dt_products)
+            .service(control::control_panel_dt_cleanup)
+            .service(control::control_panel_dt_cleanup_get)
+            .service(control::control_panel_dt_manual_queue)
+            .service(control::control_panel_dt_manual_add)
+            .service(control::control_panel_dt_manual_remove)
+            .service(control::shop_products_import_prom)
             .service(control::dt_parse)
             .service(control::dt_parse_page)
             .service(control::dt_product_info)

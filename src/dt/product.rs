@@ -203,6 +203,23 @@ impl SqliteProductRepository {
             let _ = conn.execute("ALTER TABLE product ADD COLUMN quantity INTEGER", []);
             let _ = conn.execute("ALTER TABLE product ADD COLUMN supplier TEXT", []);
             let _ = conn.execute("ALTER TABLE product ADD COLUMN discount_percent INTEGER", []);
+            let _ = conn.execute(
+                "DELETE FROM product
+                 WHERE rowid NOT IN (
+                    SELECT rowid FROM product p
+                    WHERE p.rowid = (
+                        SELECT rowid FROM product p2
+                        WHERE p2.article = p.article
+                        ORDER BY p2.last_visited DESC, p2.rowid DESC
+                        LIMIT 1
+                    )
+                 )",
+                [],
+            );
+            let _ = conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS product_article_idx ON product(article)",
+                [],
+            );
             conn.commit()?;
             Ok(())
         })

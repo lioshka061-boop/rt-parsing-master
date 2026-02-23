@@ -1,5 +1,6 @@
 pub mod parser;
 pub mod product;
+pub mod manual_queue;
 
 pub mod selectors {
     #![allow(clippy::unwrap_used)]
@@ -36,4 +37,14 @@ pub mod selectors {
         Lazy::new(|| Selector::parse(".cat-item-list-wrap > .cat-item-list-title > a").unwrap());
     pub static AVAILABLE_ON_ORDER: Lazy<Selector> =
         Lazy::new(|| Selector::parse(".item-info-block > .cat-item-list-prices-avail").unwrap());
+    pub static PAGINATION_NEXT: Lazy<Selector> = Lazy::new(|| {
+        Selector::parse(
+            "a[rel=\"next\"], a[aria-label*=\"Next\"], a[aria-label*=\"next\"], \
+             a[aria-label*=\"След\"], a[aria-label*=\"Далее\"], a.next, a.pagination-next",
+        )
+        .unwrap()
+    });
+    pub static LINKS: Lazy<Selector> = Lazy::new(|| Selector::parse("a").unwrap());
+    pub static JSON_LD: Lazy<Selector> =
+        Lazy::new(|| Selector::parse("script[type=\"application/ld+json\"]").unwrap());
 }
